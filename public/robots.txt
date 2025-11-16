@@ -1,0 +1,16 @@
+# NOWIHT - Robots.txt
+# https://www.robotstxt.org/
+
+# Production Robot Rules
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /test-loader
+Disallow: /test-auth
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://nowiht.com/sitemap.xml
+
+# Crawl Delay (optional, for rate limiting)
+Crawl-delay: 1
