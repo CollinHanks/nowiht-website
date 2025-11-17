@@ -23,7 +23,9 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      console.log('🔐 Attempting admin login...');
+      console.error('🔐 [PRODUCTION DEBUG] Attempting admin login...');
+      console.error('📧 [PRODUCTION DEBUG] Email:', email);
+      console.error('🔑 [PRODUCTION DEBUG] LoginType: admin');
 
       const result = await signIn('credentials', {
         email,
@@ -33,22 +35,26 @@ export default function AdminLoginPage() {
         callbackUrl,
       });
 
-      console.log('📊 Login result:', result);
+      console.error('📊 [PRODUCTION DEBUG] Login result:', JSON.stringify(result));
 
       if (result?.error) {
-        console.error('❌ Login error:', result.error);
+        console.error('❌ [PRODUCTION DEBUG] Login error:', result.error);
         setError('Invalid email or password');
         setLoading(false);
       } else if (result?.ok) {
-        console.log('✅ Login successful! Redirecting to:', callbackUrl);
+        console.error('✅ [PRODUCTION DEBUG] Login successful! Redirecting to:', callbackUrl);
+        console.error('🔄 [PRODUCTION DEBUG] Calling router.push()...');
         // Small delay to ensure session is set
         setTimeout(() => {
+          console.error('⏰ [PRODUCTION DEBUG] Timeout complete, pushing route...');
           router.push(callbackUrl);
           router.refresh();
         }, 100);
+      } else {
+        console.error('⚠️ [PRODUCTION DEBUG] Unexpected result state:', result);
       }
     } catch (err) {
-      console.error('🚨 Login exception:', err);
+      console.error('🚨 [PRODUCTION DEBUG] Login exception:', err);
       setError('An error occurred. Please try again.');
       setLoading(false);
     }
