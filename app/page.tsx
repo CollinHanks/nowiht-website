@@ -364,29 +364,24 @@ export default function HomePage() {
 
   const heroBanners = useMemo(() => [
     {
-      image: "/banner/nowiht-slider-banner-1.jpg",
+      image: "/banner/nowiht-slider-tracksuit-banner-1.png",
       title: "LUXURY ATHLEISURE COLLECTION",
       subtitle: "Where comfort meets elegance",
     },
     {
-      image: "/banner/nowiht-slider-banner-2.jpg",
+      image: "/banner/nowiht-slider-tracksuit-banner-3.jpg",
       title: "TIMELESS ESSENTIALS",
       subtitle: "Crafted for the modern woman",
     },
     {
-      image: "/banner/nowiht-slider-banner-3.jpg",
+      image: "/banner/nowiht-slider-tracksuit-banner-4.png",
       title: "SUSTAINABLE LUXURY",
       subtitle: "Premium organic materials",
     },
     {
-      image: "/banner/nowiht-slider-banner-4.jpg",
+      image: "/banner/nowiht-slider-tracksuit-banner-5.jpg",
       title: "ARTISAN CRAFTSMANSHIP",
       subtitle: "Every piece tells a story",
-    },
-    {
-      image: "/banner/nowiht-slider-banner-5.jpg",
-      title: "EFFORTLESS ELEGANCE",
-      subtitle: "Elevated essentials for every occasion",
     },
     {
       image: "/banner/nowiht-slider-tracksuit-banner-6.jpg",
