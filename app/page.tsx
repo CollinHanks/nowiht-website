@@ -12,7 +12,6 @@ import WishlistHeart from "@/components/wishlist/WishlistHeart";
 import HomepageSearchBar from "@/components/search/HomepageSearchBar";
 import SearchModal from "@/components/search/SearchModal";
 import { CATEGORIES } from "@/lib/constants";
-// ✅ REMOVED: import { MOCK_PRODUCTS } from "@/lib/product-data";
 import { useQuickView } from "@/hooks/useQuickView";
 import { useCartStore } from "@/store/cartStore";
 import { cn, formatPrice } from "@/lib/utils";
@@ -191,52 +190,64 @@ const ServiceCard = memo(({
   description: string;
   href: string;
 }) => {
-  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
-  const imagePaths = {
-    styling: '/services/personal-styling.jpg',
-    packaging: '/services/luxury-packaging.jpg',
-    craft: '/services/handcrafted.jpg'
+  const imageMap = {
+    styling: '/images/services/personal-styling.jpg',
+    packaging: '/images/services/luxury-packaging.jpg',
+    craft: '/images/services/handcrafted.jpg',
   };
 
   return (
-    <div className="group">
-      <div className="relative aspect-[4/5] mb-5 overflow-hidden border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-500">
-        {!imageError ? (
-          <Image
-            src={imagePaths[type]}
-            alt={title}
-            fill
-            className="object-cover transition-transform duration-700 group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, 33vw"
-            loading="lazy"
-            onError={() => setImageError(true)}
-          />
+    <Link
+      href={href}
+      className="group relative bg-white border border-gray-100 hover:shadow-lg transition-all duration-300 overflow-hidden"
+    >
+      <div className="aspect-[4/3] relative overflow-hidden">
+        {!hasError ? (
+          <>
+            {!imageLoaded && <ServiceVisualFallback type={type} />}
+            <Image
+              src={imageMap[type]}
+              alt={title}
+              fill
+              className={cn(
+                "object-cover transition-all duration-700",
+                imageLoaded ? "opacity-100 scale-100" : "opacity-0 scale-105",
+                "group-hover:scale-105"
+              )}
+              sizes="(max-width: 768px) 100vw, 33vw"
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setHasError(true)}
+            />
+          </>
         ) : (
           <ServiceVisualFallback type={type} />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       </div>
-      <h3 className="text-lg md:text-xl font-light tracking-wide mb-2">
-        {title}
-      </h3>
-      <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-        {description}
-      </p>
-      <Link
-        href={href}
-        className="inline-flex items-center gap-2 text-sm font-medium border-b border-black pb-1 hover:gap-3 transition-all group"
-      >
-        <span>Discover More</span>
-        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-      </Link>
-    </div>
+
+      <div className="p-6 md:p-8">
+        <h3 className="text-lg md:text-xl font-medium mb-2 group-hover:text-red-600 transition-colors">
+          {title}
+        </h3>
+        <p className="text-sm text-gray-600 leading-relaxed mb-4">
+          {description}
+        </p>
+        <div className="flex items-center gap-2 text-sm font-medium group-hover:gap-3 transition-all">
+          <span>LEARN MORE</span>
+          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+        </div>
+      </div>
+    </Link>
   );
 });
 
 ServiceCard.displayName = "ServiceCard";
 
-// Best Seller Product Card with Quick View
+// PERFORMANCE: Memoized Best Seller Card
 const BestSellerCard = memo(({
   product,
   onQuickView,
@@ -246,100 +257,80 @@ const BestSellerCard = memo(({
   onQuickView: (product: Product) => void;
   onQuickAdd: (product: Product) => void;
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
-  const handleQuickView = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onQuickView(product);
-  };
+  const firstImage = product.images && product.images.length > 0
+    ? product.images[0]
+    : '/placeholder.jpg';
 
-  const handleQuickAdd = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (product.inStock) {
-      onQuickAdd(product);
-    }
-  };
+  const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price;
+  const discountPercent = hasDiscount
+    ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100)
+    : 0;
 
   return (
-    <div
-      className="group"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <Link href={`/product/${product.slug}`}>
-        <div className="relative aspect-[3/4] mb-2 md:mb-3 overflow-hidden bg-gray-100 shadow-sm hover:shadow-md transition-shadow duration-300">
-          {/* Product Image */}
+    <div className="group relative">
+      <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 mb-2 md:mb-3">
+        <Link href={`/products/${product.slug}`}>
           <Image
-            src={product.images[0]}
+            src={firstImage}
             alt={product.name}
             fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            className={cn(
+              "object-cover transition-all duration-700",
+              imageLoaded ? "opacity-100 scale-100" : "opacity-0 scale-105",
+              "group-hover:scale-105"
+            )}
             sizes="(max-width: 768px) 50vw, 25vw"
-            loading="lazy"
+            onLoad={() => setImageLoaded(true)}
           />
+        </Link>
 
-          {/* Wishlist Heart */}
-          <div className="absolute top-2 right-2 z-20">
-            <WishlistHeart productId={product.id} product={product} size="sm" />
+        {hasDiscount && (
+          <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] md:text-xs px-2 py-1 font-medium tracking-wide">
+            -{discountPercent}%
           </div>
+        )}
 
-          {/* Sale Badge */}
-          {product.isOnSale && (
-            <div className="absolute top-2 left-2 px-2 py-0.5 md:px-2.5 md:py-1 bg-red-600 text-white text-[10px] md:text-xs font-medium uppercase">
-              SALE
-            </div>
-          )}
-
-          {/* Quick Actions - Desktop Only */}
-          {product.inStock && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{
-                opacity: isHovered ? 1 : 0,
-                y: isHovered ? 0 : 10,
-              }}
-              transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-              className="absolute inset-x-0 bottom-2 z-10 hidden md:flex gap-1 px-2"
-            >
-              <button
-                onClick={handleQuickAdd}
-                className="flex-1 flex items-center justify-center gap-1 bg-white px-2 py-2 text-[10px] font-medium text-black hover:bg-black hover:text-white transition-all"
-                title="Quick Add"
-              >
-                <ShoppingBag className="h-3 w-3" />
-                <span>ADD</span>
-              </button>
-              <button
-                onClick={handleQuickView}
-                className="flex-1 flex items-center justify-center gap-1 bg-white px-2 py-2 text-[10px] font-medium text-black hover:bg-black hover:text-white transition-all"
-                title="Quick View"
-              >
-                <Eye className="h-3 w-3" />
-                <span>VIEW</span>
-              </button>
-            </motion.div>
-          )}
+        <div className="absolute top-2 right-2">
+          <WishlistHeart productId={product.id} />
         </div>
-      </Link>
 
-      {/* Product Info */}
-      <div>
-        <h3 className="text-xs md:text-sm font-medium mb-1 md:mb-1.5 line-clamp-2 group-hover:underline">
+        <div className="absolute inset-x-0 bottom-0 p-2 md:p-3 flex gap-1.5 md:gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <button
+            onClick={() => onQuickView(product)}
+            className="flex-1 bg-white/95 backdrop-blur-sm py-2 md:py-2.5 flex items-center justify-center gap-1.5 text-[10px] md:text-xs font-medium hover:bg-black hover:text-white transition-colors"
+            aria-label="Quick view"
+          >
+            <Eye className="w-3 h-3 md:w-3.5 md:h-3.5" />
+            <span className="hidden md:inline">QUICK VIEW</span>
+          </button>
+          <button
+            onClick={() => onQuickAdd(product)}
+            className="flex-1 bg-black text-white py-2 md:py-2.5 flex items-center justify-center gap-1.5 text-[10px] md:text-xs font-medium hover:bg-red-600 transition-colors"
+            aria-label="Add to cart"
+          >
+            <ShoppingBag className="w-3 h-3 md:w-3.5 md:h-3.5" />
+            <span className="hidden md:inline">ADD TO CART</span>
+          </button>
+        </div>
+      </div>
+
+      <Link href={`/products/${product.slug}`} className="block">
+        <h3 className="text-xs md:text-sm font-medium mb-0.5 md:mb-1 line-clamp-1 group-hover:text-red-600 transition-colors">
           {product.name}
         </h3>
         <div className="flex items-center gap-1.5 md:gap-2">
-          <span className="text-sm md:text-base font-medium">
+          <span className="text-sm md:text-base font-semibold">
             {formatPrice(product.price)}
           </span>
-          {product.compareAtPrice && (
-            <span className="text-xs text-gray-400 line-through">
-              {formatPrice(product.compareAtPrice)}
+          {hasDiscount && (
+            <span className="text-xs md:text-sm text-gray-400 line-through">
+              {formatPrice(product.compareAtPrice!)}
             </span>
           )}
         </div>
-      </div>
+      </Link>
     </div>
   );
 });
@@ -347,56 +338,54 @@ const BestSellerCard = memo(({
 BestSellerCard.displayName = "BestSellerCard";
 
 export default function HomePage() {
-  const [scrollY, setScrollY] = useState(0);
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [autoplayKey, setAutoplayKey] = useState(0);
   const [mounted, setMounted] = useState(false);
-
-  // ✅ NEW: Backend state
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Search State
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-
-  // Touch/Drag State
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [scrollY, setScrollY] = useState(0);
+  const [autoplayKey, setAutoplayKey] = useState(0);
+  const [isAutoplayPaused, setIsAutoplayPaused] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  // Keyboard Navigation State
-  const [isAutoplayPaused, setIsAutoplayPaused] = useState(false);
+  // ✅ NEW: Products state
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Pull to Refresh State
-  const [pullStartY, setPullStartY] = useState<number>(0);
-  const [pullDistance, setPullDistance] = useState<number>(0);
+  // Pull to Refresh states
+  const [pullStartY, setPullStartY] = useState(0);
+  const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshSuccess, setRefreshSuccess] = useState(false);
   const PULL_THRESHOLD = 80;
 
-  // Quick View Hook
   const { isOpen, product: quickViewProduct, openQuickView, closeQuickView } = useQuickView();
-  const { addItem: addToCart } = useCartStore();
+  const addToCart = useCartStore((state) => state.addItem);
 
-  const heroBanners = useMemo<Banner[]>(() => [
+  const heroBanners = useMemo(() => [
     {
-      image: "/banner/nowiht-slider-tracksuit-banner-1.png",
-      title: "TRACKSUITS COLLECTION",
-      subtitle: "Complete sets for the modern woman",
+      image: "/banner/nowiht-slider-banner-1.jpg",
+      title: "LUXURY ATHLEISURE COLLECTION",
+      subtitle: "Where comfort meets elegance",
     },
     {
-      image: "/banner/nowiht-slider-tracksuit-banner-3.jpg",
-      title: "PREMIUM COMFORT & STYLE",
-      subtitle: "Where performance meets elegance",
+      image: "/banner/nowiht-slider-banner-2.jpg",
+      title: "TIMELESS ESSENTIALS",
+      subtitle: "Crafted for the modern woman",
     },
     {
-      image: "/banner/nowiht-slider-tracksuit-banner-4.png",
+      image: "/banner/nowiht-slider-banner-3.jpg",
       title: "SUSTAINABLE LUXURY",
-      subtitle: "Organic materials, timeless design",
+      subtitle: "Premium organic materials",
     },
     {
-      image: "/banner/nowiht-slider-tracksuit-banner-5.jpg",
-      title: "ORGANIC ATHLEISURE",
+      image: "/banner/nowiht-slider-banner-4.jpg",
+      title: "ARTISAN CRAFTSMANSHIP",
+      subtitle: "Every piece tells a story",
+    },
+    {
+      image: "/banner/nowiht-slider-banner-5.jpg",
+      title: "EFFORTLESS ELEGANCE",
       subtitle: "Elevated essentials for every occasion",
     },
     {
@@ -406,18 +395,35 @@ export default function HomePage() {
     },
   ], []);
 
-  // ✅ CHANGED: Best sellers from API
-  const bestSellers = useMemo(() =>
-    products.filter((p) => p.isBestSeller).slice(0, 4),
-    [products]
-  );
+  // ✅ SMART BEST SELLERS: Sales-based or newest products
+  const bestSellers = useMemo(() => {
+    if (!products.length) return [];
+
+    // Filter published products only
+    const publishedProducts = products.filter(p => p.status === 'published');
+
+    // Check if ANY product has sales (soldCount > 0)
+    const hasSales = publishedProducts.some(p => (p.soldCount || 0) > 0);
+
+    if (hasSales) {
+      // IF SALES EXIST: Sort by soldCount (highest first)
+      return [...publishedProducts]
+        .sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0))
+        .slice(0, 4);
+    } else {
+      // IF NO SALES: Sort by createdAt (newest first)
+      return [...publishedProducts]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 4);
+    }
+  }, [products]);
 
   const featuredCollections = useMemo(() =>
     CATEGORIES.slice(0, 3),
     []
   );
 
-  // ✅ NEW: Fetch products from API
+  // ✅ Fetch products from API
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -447,7 +453,6 @@ export default function HomePage() {
     setMounted(true);
   }, []);
 
-  // ... (rest of the hooks remain the same - autoplay, touch handlers, etc.)
   // Autoplay with pause support
   useEffect(() => {
     if (isAutoplayPaused) return;
@@ -698,53 +703,32 @@ export default function HomePage() {
                     rotate: isRefreshing ? 360 : 0,
                   }}
                   transition={{
-                    duration: 1.5,
+                    duration: 1,
                     repeat: isRefreshing ? Infinity : 0,
-                    ease: 'linear',
+                    ease: "linear",
                   }}
-                  className="relative w-8 h-8"
-                >
-                  <Image
-                    src="/images/logo-black.png"
-                    alt="NOWIHT"
-                    fill
-                    className="object-contain"
-                  />
-                </motion.div>
-
+                  className="w-6 h-6 border-2 border-gray-300 border-t-black rounded-full"
+                />
                 <AnimatePresence mode="wait">
                   {refreshSuccess ? (
-                    <motion.div
+                    <motion.span
                       key="success"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="flex items-center gap-2"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="text-sm font-medium text-green-600 uppercase tracking-wider"
                     >
-                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-sm font-medium text-black uppercase tracking-wider">Refreshed</span>
-                    </motion.div>
+                      ✓ Refreshed
+                    </motion.span>
                   ) : isRefreshing ? (
                     <motion.span
-                      key="loading"
+                      key="refreshing"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       className="text-sm font-medium text-black uppercase tracking-wider"
                     >
-                      Loading...
-                    </motion.span>
-                  ) : pullDistance >= PULL_THRESHOLD ? (
-                    <motion.span
-                      key="release"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="text-sm font-medium text-black uppercase tracking-wider"
-                    >
-                      Release
+                      Refreshing...
                     </motion.span>
                   ) : (
                     <motion.span
@@ -763,7 +747,7 @@ export default function HomePage() {
           )}
         </AnimatePresence>
 
-        {/* HERO SECTION - (unchanged, keeping all existing functionality) */}
+        {/* HERO SECTION */}
         <section
           className={cn(
             "relative min-h-[650px] flex items-end overflow-hidden group select-none",
@@ -922,7 +906,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ✅ BEST SELLERS - NOW FROM BACKEND */}
+        {/* ✅ BEST SELLERS - SMART LOGIC */}
         <section className="py-12 md:py-16 bg-gray-50">
           <div className="max-w-[1400px] mx-auto px-4 md:px-6">
             <div className="flex justify-between items-end mb-6 md:mb-8">
@@ -939,7 +923,7 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* ✅ Loading State */}
+            {/* Loading State */}
             {loading ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 lg:gap-5">
                 {[...Array(4)].map((_, i) => (
@@ -962,7 +946,7 @@ export default function HomePage() {
                 ))}
               </div>
             ) : (
-              /* ✅ Empty State */
+              /* Empty State */
               <div className="text-center py-12">
                 <p className="text-gray-500 mb-4">No best sellers yet. Add products from the admin panel!</p>
                 <Link href="/admin/products" className="inline-block px-6 py-3 bg-black text-white hover:bg-red-600 transition-colors">
@@ -994,7 +978,7 @@ export default function HomePage() {
                   SUSTAINABILITY
                 </h3>
                 <p className="text-xl md:text-2xl lg:text-3xl font-light mb-2 tracking-wide">
-                  Carbon-Neutral Delivery
+                  Organic Materials
                 </p>
                 <p className="text-xs md:text-sm text-gray-400">
                   Committed to our planet
