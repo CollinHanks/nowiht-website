@@ -188,13 +188,13 @@ export const authConfig: NextAuthConfig = {
   },
 
   pages: {
-    signIn: '/login', // Customer login (default)
-    error: '/login',
+    signIn: '/admin/login', // ✅ FIXED: Admin login path
+    error: '/admin/login',
   },
 
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days for customers, 24h for admins
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
   secret: process.env.NEXTAUTH_SECRET,

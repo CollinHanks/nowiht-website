@@ -23,22 +23,32 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
+      console.log('🔐 Attempting admin login...');
+
       const result = await signIn('credentials', {
         email,
         password,
-        redirect: false
+        loginType: 'admin', // ✅ CRITICAL: This was missing!
+        redirect: false,
+        callbackUrl,
       });
 
+      console.log('📊 Login result:', result);
+
       if (result?.error) {
+        console.error('❌ Login error:', result.error);
         setError('Invalid email or password');
         setLoading(false);
       } else if (result?.ok) {
         console.log('✅ Login successful! Redirecting to:', callbackUrl);
-        router.push(callbackUrl);
-        router.refresh();
+        // Small delay to ensure session is set
+        setTimeout(() => {
+          router.push(callbackUrl);
+          router.refresh();
+        }, 100);
       }
     } catch (err) {
-      console.error('🚨 Login error:', err);
+      console.error('🚨 Login exception:', err);
       setError('An error occurred. Please try again.');
       setLoading(false);
     }
@@ -78,8 +88,9 @@ export default function AdminLoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
-                  placeholder="admin@nowiht.com"
+                  placeholder="kursat@nowiht.com"
                   disabled={loading}
+                  autoComplete="email"
                 />
               </div>
             </div>
@@ -99,6 +110,7 @@ export default function AdminLoginPage() {
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black"
                   placeholder="••••••••"
                   disabled={loading}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
@@ -136,10 +148,10 @@ export default function AdminLoginPage() {
 
           {/* Demo Credentials */}
           <div className="mt-6 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-            <p className="text-xs text-gray-600 mb-2 font-medium">Demo Credentials:</p>
+            <p className="text-xs text-gray-600 mb-2 font-medium">Your Admin Credentials:</p>
             <p className="text-xs text-gray-500 font-mono">
-              Email: admin@nowiht.com<br />
-              Password: admin123
+              Email: kursat@nowiht.com<br />
+              Password: K1324rst*1
             </p>
           </div>
         </div>
