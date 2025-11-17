@@ -101,7 +101,7 @@ export default async function proxy(request: NextRequest) {
         return NextResponse.redirect(url);
       }
 
-      console.log(`✅ [ADMIN] Authorized access to: ${pathname}`);
+      console.error(`✅ [ADMIN] Authorized access to: ${pathname}`);
     } catch (error) {
       console.error('[ADMIN] Auth check error:', error);
       const url = request.nextUrl.clone();
