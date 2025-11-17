@@ -76,3 +76,10 @@ temp/
 **/public/worker-*.js.map.env.local
 .env.production
 .env*.local
+
+# Environment Variables (CRITICAL - NEVER COMMIT!)
+.env
+.env.local
+.env.production
+.env*.local
+.vercel
