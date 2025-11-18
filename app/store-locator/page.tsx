@@ -3,10 +3,21 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { MapPin, Phone, Mail, Clock, Search, Navigation } from "lucide-react";
+import dynamic from "next/dynamic";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
-// REAL STORE DATA - REPLACE WITH SUPABASE
+// Dynamically import map to avoid SSR issues
+const MapComponent = dynamic(() => import("@/components/StoreMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="aspect-square bg-gray-100 border border-gray-200 flex items-center justify-center">
+      <div className="animate-pulse text-gray-400">Loading map...</div>
+    </div>
+  ),
+});
+
+// REAL STORE DATA
 const STORES = [
   {
     id: 1,
@@ -101,7 +112,6 @@ export default function StoreLocatorPage() {
 
   useEffect(() => {
     setMounted(true);
-    // TODO: Fetch from Supabase
   }, []);
 
   const filteredStores = stores.filter((store) => {
@@ -171,11 +181,10 @@ export default function StoreLocatorPage() {
                   <button
                     key={city}
                     onClick={() => setSelectedCity(city)}
-                    className={`px-4 py-2 text-sm font-medium transition-all ${
-                      selectedCity === city
+                    className={`px-4 py-2 text-sm font-medium transition-all ${selectedCity === city
                         ? "bg-black text-white"
                         : "bg-white border border-gray-300 hover:border-black"
-                    }`}
+                      }`}
                   >
                     {city}
                   </button>
@@ -201,35 +210,20 @@ export default function StoreLocatorPage() {
         <section className="py-16 px-6">
           <div className="max-w-7xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-8">
-              {/* Google Maps */}
+              {/* OpenStreetMap */}
               <div className="order-2 lg:order-1">
                 <div className="sticky top-24">
-                  <div className="relative aspect-square bg-gray-100 border border-gray-200 overflow-hidden">
-                    {selectedStore ? (
-                      <iframe
-                        src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${selectedStore.coordinates.lat},${selectedStore.coordinates.lng}&zoom=15`}
-                        width="100%"
-                        height="100%"
-                        style={{ border: 0 }}
-                        allowFullScreen
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                      ></iframe>
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center">
-                          <MapPin className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                          <p className="text-gray-600 font-light">Select a store</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <MapComponent
+                    stores={filteredStores}
+                    selectedStore={selectedStore}
+                    onStoreSelect={setSelectedStore}
+                  />
                   <div className="mt-4 text-center">
                     <p className="text-sm text-gray-600 font-light">
                       Showing: <strong>{selectedStore?.name}</strong>
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Click on any store card to update the map
+                      Click on markers or store cards to navigate
                     </p>
                   </div>
                 </div>
@@ -249,11 +243,10 @@ export default function StoreLocatorPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.1 }}
                       onClick={() => setSelectedStore(store)}
-                      className={`border p-6 cursor-pointer transition-all ${
-                        selectedStore?.id === store.id
+                      className={`border p-6 cursor-pointer transition-all ${selectedStore?.id === store.id
                           ? "border-black bg-gray-50"
                           : "hover:border-black bg-white"
-                      } ${store.featured ? "bg-gray-50" : ""}`}
+                        } ${store.featured ? "bg-gray-50" : ""}`}
                     >
                       {/* Store Name */}
                       <div className="flex items-start justify-between mb-4">
@@ -341,7 +334,7 @@ export default function StoreLocatorPage() {
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-3xl font-light mb-6">Visit Us Today</h2>
             <p className="text-lg text-gray-600 font-light leading-relaxed mb-8">
-              Our knowledgeable staff is ready to help you find the perfect pieces for your wardrobe. 
+              Our knowledgeable staff is ready to help you find the perfect pieces for your wardrobe.
               Experience the quality and craftsmanship of NOWIHT in person.
             </p>
             <div className="grid md:grid-cols-3 gap-8">
