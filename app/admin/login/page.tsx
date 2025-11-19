@@ -2,11 +2,10 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Lock, Mail, AlertCircle } from 'lucide-react';
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,7 +13,6 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // ✅ FIXED: Redirect to /admin (not /admin/dashboard)
   const callbackUrl = searchParams.get('callbackUrl') || '/admin';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,38 +21,22 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      console.error('🔐 [PRODUCTION DEBUG] Attempting admin login...');
-      console.error('📧 [PRODUCTION DEBUG] Email:', email);
-      console.error('🔑 [PRODUCTION DEBUG] LoginType: admin');
-
       const result = await signIn('credentials', {
         email,
         password,
-        loginType: 'admin', // ✅ CRITICAL: This was missing!
+        loginType: 'admin',
         redirect: false,
-        callbackUrl,
       });
 
-      console.error('📊 [PRODUCTION DEBUG] Login result:', JSON.stringify(result));
-
       if (result?.error) {
-        console.error('❌ [PRODUCTION DEBUG] Login error:', result.error);
         setError('Invalid email or password');
         setLoading(false);
       } else if (result?.ok) {
-        console.error('✅ [PRODUCTION DEBUG] Login successful! Redirecting to:', callbackUrl);
-        console.error('🔄 [PRODUCTION DEBUG] Calling router.push()...');
-        // Small delay to ensure session is set
-        setTimeout(() => {
-          console.error('⏰ [PRODUCTION DEBUG] Timeout complete, pushing route...');
-          router.push(callbackUrl);
-          router.refresh();
-        }, 100);
-      } else {
-        console.error('⚠️ [PRODUCTION DEBUG] Unexpected result state:', result);
+        // 🔥 CRITICAL FIX: Use window.location for hard redirect
+        // This ensures cookies are properly set and read
+        window.location.href = callbackUrl;
       }
     } catch (err) {
-      console.error('🚨 [PRODUCTION DEBUG] Login exception:', err);
       setError('An error occurred. Please try again.');
       setLoading(false);
     }
@@ -63,13 +45,11 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full px-4">
-        {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-light tracking-wider mb-2">NOWIHT</h1>
           <p className="text-sm text-gray-600 uppercase tracking-widest">Admin Access</p>
         </div>
 
-        {/* Login Form */}
         <div className="bg-white border rounded-lg p-8">
           <h2 className="text-2xl font-light mb-6">Sign In</h2>
 
@@ -152,7 +132,6 @@ export default function AdminLoginPage() {
             </button>
           </form>
 
-          {/* Demo Credentials */}
           <div className="mt-6 p-3 bg-gray-50 border border-gray-200 rounded-lg">
             <p className="text-xs text-gray-600 mb-2 font-medium">Your Admin Credentials:</p>
             <p className="text-xs text-gray-500 font-mono">
@@ -162,7 +141,6 @@ export default function AdminLoginPage() {
           </div>
         </div>
 
-        {/* Footer */}
         <p className="text-center text-sm text-gray-500 mt-8">
           Protected by NextAuth v5 • Supabase Backend
         </p>

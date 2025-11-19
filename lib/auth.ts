@@ -54,8 +54,6 @@ export const authConfig: NextAuthConfig = {
         loginType: { label: 'Login Type', type: 'text' },
       },
       async authorize(credentials) {
-        console.log('🔍 LOGIN ATTEMPT:', credentials?.email, credentials?.loginType);
-
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
@@ -84,7 +82,6 @@ export const authConfig: NextAuthConfig = {
               .update({ last_login: new Date().toISOString() })
               .eq('id', admin.id);
 
-            console.log('✅ Admin login successful!');
             return {
               id: admin.id,
               email: admin.email,
@@ -94,7 +91,6 @@ export const authConfig: NextAuthConfig = {
             };
           }
 
-          // Customer login
           const { data: user, error } = await supabaseAdmin
             .from('users')
             .select('*')
@@ -110,7 +106,6 @@ export const authConfig: NextAuthConfig = {
 
           if (!isValid) return null;
 
-          console.log('✅ Customer login successful!');
           return {
             id: user.id,
             email: user.email,
@@ -119,7 +114,7 @@ export const authConfig: NextAuthConfig = {
             image: user.image || null,
           };
         } catch (error) {
-          console.error('🚨 Auth error:', error);
+          console.error('Auth error:', error);
           return null;
         }
       },
@@ -154,11 +149,11 @@ export const authConfig: NextAuthConfig = {
     maxAge: 30 * 24 * 60 * 60,
   },
 
-  // 🔥 CRITICAL FIX: Use default cookie name (no __Secure- prefix)
-  // This allows getToken() to work without additional config
+  // 🔥 REMOVED: Cookie config - use NextAuth v5 defaults
+  // NextAuth v5 uses: authjs.session-token or _Secure-authjs.session-token
+
   trustHost: true,
   secret: process.env.NEXTAUTH_SECRET,
-  debug: true,
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
