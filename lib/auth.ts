@@ -197,7 +197,7 @@ export const authConfig: NextAuthConfig = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
-  // 🔥 FIXED: Cookie configuration for production
+  // 🔥 FIXED: Remove domain restriction - let browser handle it
   cookies: {
     sessionToken: {
       name: '__Secure-next-auth.session-token',
@@ -206,7 +206,8 @@ export const authConfig: NextAuthConfig = {
         sameSite: 'lax',
         path: '/',
         secure: true,
-        domain: process.env.NODE_ENV === 'production' ? '.nowiht.com' : undefined,
+        // 🔥 REMOVED: domain restriction
+        // This allows cookie to work on both nowiht.com and www.nowiht.com
       },
     },
   },
