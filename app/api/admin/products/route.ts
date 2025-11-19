@@ -1,28 +1,51 @@
 // app/api/admin/products/route.ts
-// API endpoint for admin product operations
+// ═══════════════════════════════════════════════════════════════
+// 🔒 NOWIHT - Admin Products API (NextAuth v5 Compatible)
+// Protected with adminGuard + Supabase service role
+// ═══════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getAllProductsAdmin,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-} from '@/lib/supabase/products';
+import { withAdminAuth, getCurrentAdmin } from '@/lib/auth/adminGuard';
+import { requireAdmin } from '@/lib/supabase/client';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/admin/products
  * Get all products (including drafts)
+ * PROTECTED: Admin only
  */
 export async function GET() {
   try {
-    const products = await getAllProductsAdmin();
-    return NextResponse.json({ success: true, products });
+    // ✅ Step 1: Check admin access (NextAuth v5)
+    const admin = await getCurrentAdmin();
+
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required' },
+        { status: 401 }
+      );
+    }
+
+    // ✅ Step 2: Use service role (bypasses RLS)
+    const supabaseAdmin = requireAdmin();
+
+    const { data: products, error } = await supabaseAdmin
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      products: products || [],
+    });
   } catch (error: any) {
-    console.error('Error fetching products:', error);
+    console.error('❌ Error fetching products:', error);
+
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error.message || 'Failed to fetch products' },
       { status: 500 }
     );
   }
@@ -31,35 +54,59 @@ export async function GET() {
 /**
  * POST /api/admin/products
  * Create a new product
+ * PROTECTED: Admin only (using withAdminAuth wrapper)
  */
-export async function POST(request: NextRequest) {
+export const POST = withAdminAuth(async (request, admin) => {
   try {
     const productData = await request.json();
-    const result = await createProduct(productData);
+    const supabaseAdmin = requireAdmin();
 
-    if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 400 }
-      );
-    }
+    // Add metadata
+    const enrichedData = {
+      ...productData,
+      created_by: admin.email,
+      updated_by: admin.email,
+      in_stock: (productData.stock || 0) > 0,
+    };
 
-    return NextResponse.json({ success: true, product: result.data });
+    const { data: product, error } = await supabaseAdmin
+      .from('products')
+      .insert([enrichedData])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      product,
+    });
   } catch (error: any) {
-    console.error('Error creating product:', error);
+    console.error('❌ Error creating product:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
     );
   }
-}
+});
 
 /**
- * PUT /api/admin/products/:id
+ * PUT /api/admin/products?id=xxx
  * Update a product
+ * PROTECTED: Admin only
  */
 export async function PUT(request: NextRequest) {
   try {
+    // ✅ Check admin access
+    const admin = await getCurrentAdmin();
+
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -71,18 +118,35 @@ export async function PUT(request: NextRequest) {
     }
 
     const productData = await request.json();
-    const result = await updateProduct(id, productData);
+    const supabaseAdmin = requireAdmin();
 
-    if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 400 }
-      );
+    // Add metadata
+    const enrichedData = {
+      ...productData,
+      updated_by: admin.email,
+      updated_at: new Date().toISOString(),
+    };
+
+    if ('stock' in productData) {
+      enrichedData.in_stock = (productData.stock || 0) > 0;
     }
 
-    return NextResponse.json({ success: true, product: result.data });
+    const { data: product, error } = await supabaseAdmin
+      .from('products')
+      .update(enrichedData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      product,
+    });
   } catch (error: any) {
-    console.error('Error updating product:', error);
+    console.error('❌ Error updating product:', error);
+
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
@@ -91,11 +155,22 @@ export async function PUT(request: NextRequest) {
 }
 
 /**
- * DELETE /api/admin/products/:id
+ * DELETE /api/admin/products?id=xxx
  * Delete a product
+ * PROTECTED: Admin only
  */
 export async function DELETE(request: NextRequest) {
   try {
+    // ✅ Check admin access
+    const admin = await getCurrentAdmin();
+
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -106,18 +181,19 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const result = await deleteProduct(id);
+    const supabaseAdmin = requireAdmin();
 
-    if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 400 }
-      );
-    }
+    const { error } = await supabaseAdmin
+      .from('products')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Error deleting product:', error);
+    console.error('❌ Error deleting product:', error);
+
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
