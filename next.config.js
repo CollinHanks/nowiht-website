@@ -1,6 +1,6 @@
 // next.config.js
 // NOWIHT E-Commerce - Production Configuration
-// 🔥 FIXED: NextAuth v5 + PWA + Bundle Analyzer
+// 🔥 FIXED: Next.js 16 - Removed deprecated options
 
 const withPWA = require('next-pwa')({
   dest: 'public',
@@ -152,19 +152,14 @@ const withPWA = require('next-pwa')({
   ]
 });
 
-// ✅ BUNDLE ANALYZER
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 });
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ============================================
-  // IMAGE OPTIMIZATION
-  // ============================================
   images: {
     unoptimized: true,
-
     remotePatterns: [
       {
         protocol: 'http',
@@ -177,13 +172,11 @@ const nextConfig = {
         hostname: 'localhost',
         pathname: '/**',
       },
-      // 🔥 CRITICAL: Supabase Storage
       {
         protocol: 'https',
         hostname: '*.supabase.co',
         pathname: '/storage/v1/object/public/**',
       },
-      // 🔥 PRODUCTION: Your domain
       {
         protocol: 'https',
         hostname: 'nowiht.com',
@@ -195,25 +188,16 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
-
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-
-    // ✅ Image quality settings
     qualities: [100, 90, 75, 60],
-
-    minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days
-
+    minimumCacheTTL: 60 * 60 * 24 * 30,
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-
     disableStaticImages: false,
   },
 
-  // ============================================
-  // COMPRESSION & PERFORMANCE
-  // ============================================
   compress: true,
 
   compiler: {
@@ -222,16 +206,10 @@ const nextConfig = {
     } : false,
   },
 
-  // ============================================
-  // EXPERIMENTAL FEATURES (NextAuth v5 Required)
-  // ============================================
   experimental: {
-    // Optimize package imports
     optimizePackageImports: ['lucide-react', 'framer-motion'],
-
-    // 🔥 CRITICAL: Server Actions config
     serverActions: {
-      bodySizeLimit: '50mb', // Required for media uploads
+      bodySizeLimit: '50mb',
       allowedOrigins: [
         'localhost:3000',
         'nowiht.com',
@@ -241,22 +219,14 @@ const nextConfig = {
     },
   },
 
-  // ============================================
-  // TURBOPACK
-  // ============================================
   turbopack: {},
 
-  // ============================================
-  // WEBPACK CONFIGURATION
-  // ============================================
   webpack: (config, { isServer }) => {
-    // External packages for server-side
     config.externals.push({
       'utf-8-validate': 'commonjs utf-8-validate',
       'bufferutil': 'commonjs bufferutil',
     });
 
-    // 🔥 CRITICAL: Fix for NextAuth v5 + Edge Runtime
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -270,9 +240,6 @@ const nextConfig = {
     return config;
   },
 
-  // ============================================
-  // SECURITY HEADERS
-  // ============================================
   async headers() {
     return [
       {
@@ -308,7 +275,6 @@ const nextConfig = {
           },
         ],
       },
-      // 🔥 CRITICAL: NextAuth v5 requires specific headers for /api/auth/*
       {
         source: '/api/auth/:path*',
         headers: [
@@ -321,17 +287,8 @@ const nextConfig = {
     ];
   },
 
-  // ============================================
-  // REDIRECTS
-  // ============================================
   async redirects() {
     return [
-      {
-        source: '/admin',
-        destination: '/admin/products',
-        permanent: false,
-      },
-      // Redirect old URLs (if any)
       {
         source: '/shop',
         destination: '/products',
@@ -340,57 +297,27 @@ const nextConfig = {
     ];
   },
 
-  // ============================================
-  // REWRITES (if needed)
-  // ============================================
   async rewrites() {
-    return [
-      // Add any URL rewrites here
-    ];
+    return [];
   },
 
-  // ============================================
-  // TYPESCRIPT & ESLINT
-  // ============================================
   typescript: {
-    // ⚠️ Set to true during build to ignore TypeScript errors
     ignoreBuildErrors: false,
   },
 
-  eslint: {
-    // ⚠️ Set to true during build to ignore ESLint errors
-    ignoreDuringBuilds: false,
-  },
-
-  // ============================================
-  // PRODUCTION OPTIMIZATIONS
-  // ============================================
-  swcMinify: true,
   reactStrictMode: true,
   poweredByHeader: false,
 
-  // ============================================
-  // OUTPUT CONFIGURATION
-  // ============================================
-  output: 'standalone', // For Docker deployments (optional)
-
-  // ============================================
-  // ENVIRONMENT VARIABLES
-  // ============================================
   env: {
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'https://nowiht.com',
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://nowiht.com',
   },
 
-  // ============================================
-  // LOGGING (Production)
-  // ============================================
   logging: {
     fetches: {
-      fullUrl: false, // Disable in production for security
+      fullUrl: false,
     },
   },
 };
 
-// ✅ Export with Bundle Analyzer + PWA
 module.exports = withBundleAnalyzer(withPWA(nextConfig));
