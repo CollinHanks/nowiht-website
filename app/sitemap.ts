@@ -2,19 +2,21 @@
 // ═══════════════════════════════════════════════════════════════
 // 🗺️ NOWIHT - Dynamic Sitemap (Next.js 16 Compatible)
 // Generates sitemap.xml for SEO
+// FIXED: Proper dynamic rendering + direct Supabase queries
 // ═══════════════════════════════════════════════════════════════
 
 import { MetadataRoute } from 'next';
-import { ProductService } from '@/lib/services/ProductService';
-import { CategoryService } from '@/lib/services/CategoryService';
+import { supabase } from '@/lib/supabase/client';
+
+// ============================================
+// 🔥 CRITICAL: Force dynamic rendering
+// ============================================
+export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // Regenerate every hour
 
 /**
  * Generate dynamic sitemap
- * 
- * This function runs at build time (ISR) and generates a sitemap
- * with all products, categories, and static pages.
- * 
- * Next.js automatically serves this at /sitemap.xml
+ * Uses direct Supabase queries (no API calls)
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://nowiht.com';
@@ -106,7 +108,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'yearly',
       priority: 0.3,
     },
-    // Services pages
     {
       url: `${baseUrl}/services/styling`,
       lastModified: currentDate,
@@ -125,7 +126,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly',
       priority: 0.6,
     },
-    // Ecology pages
     {
       url: `${baseUrl}/ecologic/sustainability-vision`,
       lastModified: currentDate,
@@ -165,26 +165,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    // Fetch all active categories
-    const categories = await CategoryService.getAll();
-    const categoryPages: MetadataRoute.Sitemap = categories
-      .filter((cat) => cat.status === 'active')
-      .map((category) => ({
-        url: `${baseUrl}/shop/${category.slug}`,
-        lastModified: new Date(category.updatedAt),
-        changeFrequency: 'daily' as const,
-        priority: 0.8,
-      }));
+    // ============================================
+    // 🔥 FIXED: Direct Supabase queries (no API)
+    // ============================================
 
-    // Fetch all published products
-    const products = await ProductService.getAll({
-      status: 'published',
-      limit: 1000, // Adjust as needed
-    });
+    // Fetch categories
+    const { data: categories } = await supabase
+      .from('categories')
+      .select('slug, updated_at, is_active')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
 
-    const productPages: MetadataRoute.Sitemap = products.map((product) => ({
+    const categoryPages: MetadataRoute.Sitemap = (categories || []).map((category) => ({
+      url: `${baseUrl}/shop/${category.slug}`,
+      lastModified: new Date(category.updated_at),
+      changeFrequency: 'daily' as const,
+      priority: 0.8,
+    }));
+
+    // Fetch products
+    const { data: products } = await supabase
+      .from('products')
+      .select('slug, updated_at, created_at')
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    const productPages: MetadataRoute.Sitemap = (products || []).map((product) => ({
       url: `${baseUrl}/product/${product.slug}`,
-      lastModified: new Date(product.updatedAt || product.createdAt),
+      lastModified: new Date(product.updated_at || product.created_at),
       changeFrequency: 'weekly' as const,
       priority: 0.7,
     }));
@@ -196,23 +205,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       total: staticPages.length + categoryPages.length + productPages.length,
     });
 
-    // Combine all pages
     return [...staticPages, ...categoryPages, ...productPages];
   } catch (error) {
     console.error('❌ Error generating sitemap:', error);
-    // Return at least static pages if database fetch fails
     return staticPages;
   }
 }
-
-/**
- * Next.js 16: ISR (Incremental Static Regeneration)
- * Regenerate sitemap every hour
- */
-export const revalidate = 3600; // 1 hour in seconds
-
-/**
- * Force cache all fetches in this route
- * Prevents "Dynamic server usage" errors
- */
-export const fetchCache = 'force-cache';
