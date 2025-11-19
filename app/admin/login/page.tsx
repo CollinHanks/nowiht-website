@@ -1,8 +1,7 @@
 'use client';
 
 // app/admin/login/page.tsx
-// NOWIHT Admin Login - FIXED VERSION
-// 🔥 This fixes the 3-day login issue
+// NOWIHT Admin Login - SECURE VERSION (No visible credentials)
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
@@ -25,14 +24,12 @@ export default function AdminLoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Reset error
     setError('');
     setLoading(true);
 
     console.log('🔐 [LOGIN] Attempting login:', { email, callbackUrl });
 
     try {
-      // 🔥 CRITICAL FIX: Proper signIn call with error handling
       const result = await signIn('credentials', {
         email: email.trim(),
         password: password,
@@ -43,11 +40,9 @@ export default function AdminLoginPage() {
 
       console.log('📝 [LOGIN] SignIn result:', result);
 
-      // Handle errors
       if (result?.error) {
         console.error('❌ [LOGIN] SignIn error:', result.error);
 
-        // Map error messages
         let errorMessage = 'Invalid email or password';
 
         if (result.error === 'CredentialsSignin') {
@@ -65,15 +60,10 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // Success!
       if (result?.ok) {
         console.log('✅ [LOGIN] Login successful, redirecting...');
-
-        // 🔥 CRITICAL FIX: Use window.location for hard redirect
-        // This ensures cookies are properly set and middleware runs
         window.location.href = callbackUrl;
       } else {
-        // Unexpected case
         console.error('⚠️ [LOGIN] Unexpected result:', result);
         setError('Login failed. Please try again.');
         setLoading(false);
@@ -136,7 +126,7 @@ export default function AdminLoginPage() {
                   disabled={loading}
                   autoComplete="email"
                   className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-black focus:ring-1 focus:ring-black disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors"
-                  placeholder="kursat@nowiht.com"
+                  placeholder="admin@nowiht.com"
                 />
               </div>
             </div>
@@ -209,43 +199,7 @@ export default function AdminLoginPage() {
             </button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-            <p className="text-xs text-gray-600 mb-2 font-medium">
-              📋 Your Admin Credentials:
-            </p>
-            <div className="text-xs text-gray-500 font-mono space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400">Email:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('kursat@nowiht.com');
-                    navigator.clipboard.writeText('kursat@nowiht.com');
-                  }}
-                  className="text-black hover:underline"
-                >
-                  kursat@nowiht.com
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400">Pass:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPassword('K1324rst*1');
-                    navigator.clipboard.writeText('K1324rst*1');
-                  }}
-                  className="text-black hover:underline"
-                >
-                  K1324rst*1
-                </button>
-              </div>
-            </div>
-            <p className="text-xs text-gray-400 mt-2">
-              Click to copy and fill
-            </p>
-          </div>
+          {/* 🔥 REMOVED: Demo Credentials Box (Security Issue) */}
         </div>
 
         {/* Footer */}
