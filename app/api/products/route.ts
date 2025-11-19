@@ -1,5 +1,6 @@
 // app/api/products/route.ts
 // Public Products API - For Shop/Homepage
+// FIXED: Removed JOIN, using category string
 
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
@@ -13,22 +14,50 @@ export async function GET(request: Request) {
     const category = searchParams.get('category');
     const featured = searchParams.get('featured');
     const limit = searchParams.get('limit');
+    const slug = searchParams.get('slug');
 
+    // ============================================
+    // GET SINGLE PRODUCT BY SLUG
+    // ============================================
+    if (slug) {
+      const { data: product, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('slug', slug)
+        .eq('status', 'published')
+        .single();
+
+      if (error) {
+        console.error('❌ Product fetch error:', error);
+        return NextResponse.json(
+          { error: 'Product not found', details: error.message },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        product,
+      });
+    }
+
+    // ============================================
+    // GET MULTIPLE PRODUCTS WITH FILTERS
+    // ============================================
     let query = supabase
       .from('products')
-      .select('*, categories(name, slug)')
-      .eq('is_active', true)
+      .select('*')
       .eq('status', 'published')
       .order('created_at', { ascending: false });
 
-    // Filter by category
+    // Filter by category (using category string, not category_id)
     if (category && category !== 'all') {
-      query = query.eq('category_id', category);
+      query = query.eq('category', category);
     }
 
-    // Filter by featured
+    // Filter by featured (using is_best_seller)
     if (featured === 'true') {
-      query = query.eq('is_featured', true);
+      query = query.eq('is_best_seller', true);
     }
 
     // Limit results

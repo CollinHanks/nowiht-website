@@ -10,8 +10,6 @@ import Footer from "@/components/layout/Footer";
 import RecentlyViewed from "@/components/product/RecentlyViewed";
 import RelatedProducts from "@/components/product/RelatedProducts";
 import { Button } from "@/components/ui/Button";
-// 🔥 FIXED: Use Supabase instead of mock data
-import { getProductBySlug } from "@/lib/supabase/products";
 import { useCartStore } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { useToast } from "@/store/toastStore";
@@ -110,12 +108,26 @@ export default function ProductDetailPage() {
   const [isZoomed, setIsZoomed] = useState(false);
   const [lastTap, setLastTap] = useState<number>(0);
 
-  // 🔥 FIXED: Load product from database
+  // 🔥 FIXED: Load product from API (no Users table access)
   useEffect(() => {
     async function loadProduct() {
       setLoading(true);
       try {
-        const productData = await getProductBySlug(slug);
+        const response = await fetch(`/api/products?slug=${slug}`, {
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          throw new Error('Product not found');
+        }
+
+        const data = await response.json();
+        const productData = data.product;
+
+        if (!productData) {
+          throw new Error('Product not found');
+        }
+
         setProduct(productData);
       } catch (error) {
         console.error("Error loading product:", error);

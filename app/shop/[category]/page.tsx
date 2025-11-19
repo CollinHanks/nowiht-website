@@ -7,9 +7,27 @@ import { ChevronRight } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/product/ProductCard";
-import { CATEGORIES } from "@/lib/constants";
 import { useCartStore } from "@/store/cartStore";
 import type { Product } from "@/types";
+
+// ============================================
+// DEFAULT CATEGORIES (for metadata)
+// ============================================
+const DEFAULT_CATEGORIES = [
+  { slug: "hoodie", name: "Hoodies", description: "Premium hooded sweatshirts" },
+  { slug: "tracksuit", name: "Tracksuits", description: "Luxury matching sets" },
+  { slug: "polo", name: "Polo Shirts", description: "Elegant polo shirts" },
+  { slug: "dress", name: "Dresses", description: "Sophisticated athleisure dresses" },
+  { slug: "sweatshirt", name: "Sweatshirts", description: "Classic crewneck sweatshirts" },
+  { slug: "t-shirt", name: "T-Shirts", description: "Essential luxury tees" },
+  { slug: "pajama-set", name: "Pajama Sets", description: "Premium loungewear sets" },
+  { slug: "nightgown", name: "Nightgowns", description: "Luxurious sleepwear dresses" },
+  { slug: "babydoll", name: "Babydolls", description: "Romantic sleep sets" },
+  { slug: "lingerie", name: "Lingerie", description: "High-end intimate apparel" },
+  { slug: "lingerie-set", name: "Lingerie Sets", description: "Coordinated intimate sets" },
+  { slug: "panties", name: "Panties", description: "Luxury underwear" },
+  { slug: "bra", name: "Bras", description: "Premium support & comfort" },
+];
 
 interface CategoryPageParams {
   params: Promise<{ category: string }>;
@@ -28,6 +46,7 @@ export default function CategoryPage({ params }: CategoryPageParams) {
   // Backend state
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Fix hydration
   useEffect(() => {
@@ -39,18 +58,25 @@ export default function CategoryPage({ params }: CategoryPageParams) {
     const fetchProducts = async () => {
       try {
         setLoading(true);
+        setError(null);
+
         const response = await fetch(`/api/products?category=${categorySlug}`, {
           cache: 'no-store',
         });
 
         if (!response.ok) {
-          throw new Error('Failed to fetch products');
+          throw new Error(`HTTP ${response.status}: Failed to fetch products`);
         }
 
         const data = await response.json();
-        setProducts(data || []);
-      } catch (error) {
+
+        // Handle different response formats
+        const productsData = data.products || data || [];
+
+        setProducts(productsData);
+      } catch (error: any) {
         console.error('Error fetching products:', error);
+        setError(error.message || 'Failed to load products');
         setProducts([]);
       } finally {
         setLoading(false);
@@ -63,7 +89,7 @@ export default function CategoryPage({ params }: CategoryPageParams) {
   }, [categorySlug, mounted]);
 
   // Find category info
-  const category = CATEGORIES.find((cat) => cat.slug === categorySlug);
+  const category = DEFAULT_CATEGORIES.find((cat) => cat.slug === categorySlug);
 
   // Sort products
   const sortedProducts = useMemo(() => {
@@ -80,8 +106,8 @@ export default function CategoryPage({ params }: CategoryPageParams) {
         case "name-a-z":
           return a.name.localeCompare(b.name);
         default:
-          // Featured: prioritize soldCount
-          return (b.soldCount || 0) - (a.soldCount || 0);
+          // Featured: prioritize soldCount or is_best_seller
+          return (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0);
       }
     });
   }, [products, sortBy]);
@@ -164,6 +190,8 @@ export default function CategoryPage({ params }: CategoryPageParams) {
               <p className="text-sm text-gray-600">
                 {loading ? (
                   "Loading..."
+                ) : error ? (
+                  <span className="text-red-600">{error}</span>
                 ) : (
                   <>
                     Showing <span className="font-medium text-black">{sortedProducts.length}</span>{" "}
@@ -197,6 +225,33 @@ export default function CategoryPage({ params }: CategoryPageParams) {
                     <div className="h-4 bg-gray-200 w-2/3" />
                   </div>
                 ))}
+              </div>
+            ) : error ? (
+              /* Error State */
+              <div className="text-center py-20">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6">
+                  <svg
+                    className="w-8 h-8 text-red-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-light mb-4">Error Loading Products</h3>
+                <p className="text-gray-600 mb-6">{error}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="inline-block px-8 py-3 bg-black text-white font-medium hover:bg-gray-800 transition-colors"
+                >
+                  Retry
+                </button>
               </div>
             ) : sortedProducts.length > 0 ? (
               /* Product Grid */
@@ -232,7 +287,7 @@ export default function CategoryPage({ params }: CategoryPageParams) {
                   No products found in this category yet.
                 </p>
                 <Link
-                  href="/shop"
+                  href="/product"
                   className="inline-block px-8 py-3 bg-black text-white font-medium hover:bg-gray-800 transition-colors"
                 >
                   Browse All Products
