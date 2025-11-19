@@ -5,13 +5,11 @@ import { useSearchParams } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import ProductCard from "@/components/product/ProductCard";
 import ProductGrid from "@/components/shop/ProductGrid";
 import FilterDrawer from "@/components/shop/FilterDrawer";
 import QuickViewModal from "@/components/modals/QuickViewModal";
 import Link from "next/link";
 import { CATEGORIES } from "@/lib/constants";
-// ✅ REMOVED: import { MOCK_PRODUCTS } from "@/lib/product-data";
 import { useCartStore } from "@/store/cartStore";
 import { useFilterStore, filterProducts } from "@/store/filterStore";
 import { advancedSortProducts } from "@/lib/advancedSort";
@@ -27,9 +25,10 @@ export default function ShopPage() {
   const { addItem } = useCartStore();
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // ✅ NEW: Backend state
+  // Backend state
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Quick View
   const { isOpen, product: quickViewProduct, openQuickView, closeQuickView } = useQuickView();
@@ -37,23 +36,31 @@ export default function ShopPage() {
   // Filter store
   const filters = useFilterStore();
 
-  // ✅ NEW: Fetch products from API
+  // 🔥 FIXED: Fetch products from PUBLIC API (not admin endpoint)
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/admin/products', {
+        setError(null);
+
+        const response = await fetch('/api/products', {
           cache: 'no-store',
         });
 
         if (!response.ok) {
-          throw new Error('Failed to fetch products');
+          throw new Error(`HTTP ${response.status}: Failed to fetch products`);
         }
 
         const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to load products');
+        }
+
         setProducts(data.products || []);
-      } catch (error) {
-        console.error('Error fetching products:', error);
+      } catch (error: any) {
+        console.error('❌ Error fetching products:', error);
+        setError(error.message || 'Failed to load products');
         setProducts([]);
       } finally {
         setLoading(false);
@@ -63,9 +70,9 @@ export default function ShopPage() {
     fetchProducts();
   }, []);
 
-  // ✅ UPDATED: Filter, search, and sort products (now uses 'products' state)
+  // Filter, search, and sort products
   const filteredAndSortedProducts = useMemo(() => {
-    let productsToFilter = [...products]; // ← Changed from MOCK_PRODUCTS
+    let productsToFilter = [...products];
 
     // 1. Search filter
     if (searchQuery) {
@@ -85,11 +92,7 @@ export default function ShopPage() {
     productsToFilter = advancedSortProducts(productsToFilter, filters.sortBy);
 
     return productsToFilter;
-  }, [searchQuery, filters, products]); // ← Added 'products' dependency
-
-  const handleQuickAdd = (product: any) => {
-    addItem(product, product.sizes[0], product.colors[0].name, 1);
-  };
+  }, [searchQuery, filters, products]);
 
   const activeFilterCount = filters.getActiveFilterCount();
 
@@ -180,7 +183,7 @@ export default function ShopPage() {
               </div>
             </div>
 
-            {/* ✅ UPDATED: Product Grid with Loading State */}
+            {/* Content - Loading/Error/Products */}
             {loading ? (
               /* Loading State */
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
@@ -192,13 +195,57 @@ export default function ShopPage() {
                   </div>
                 ))}
               </div>
+            ) : error ? (
+              /* Error State */
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-20 px-4"
+              >
+                <div className="max-w-md mx-auto">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg
+                      className="w-8 h-8 text-red-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-light mb-4">
+                    Failed to Load Products
+                  </h3>
+                  <p className="text-gray-600 mb-8 text-base md:text-lg">
+                    {error}
+                  </p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-6 py-3 bg-black text-white font-medium uppercase tracking-wider hover:bg-red-600 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </motion.div>
             ) : filteredAndSortedProducts.length > 0 ? (
+              /* Product Grid */
               <>
-                {/* Product Grid */}
                 <ProductGrid
                   products={filteredAndSortedProducts}
                   onQuickView={openQuickView}
                 />
+
+                {/* Load More */}
+                <div className="mt-16 flex justify-center">
+                  <button className="px-8 py-3 border-2 border-black text-black font-medium uppercase tracking-wider hover:bg-black hover:text-white transition-all duration-300">
+                    Load More Products
+                  </button>
+                </div>
               </>
             ) : (
               /* Empty State */
@@ -250,15 +297,6 @@ export default function ShopPage() {
                   </div>
                 </div>
               </motion.div>
-            )}
-
-            {/* Load More */}
-            {filteredAndSortedProducts.length > 0 && !loading && (
-              <div className="mt-16 flex justify-center">
-                <button className="px-8 py-3 border-2 border-black text-black font-medium uppercase tracking-wider hover:bg-black hover:text-white transition-all duration-300">
-                  Load More Products
-                </button>
-              </div>
             )}
           </div>
         </section>

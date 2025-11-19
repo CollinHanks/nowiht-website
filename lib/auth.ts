@@ -57,7 +57,7 @@ export const authConfig: NextAuthConfig = {
         loginType: { label: 'Login Type', type: 'text' }, // 'admin' | 'customer'
       },
       async authorize(credentials) {
-        console.log('🔐 === LOGIN ATTEMPT ===');
+        console.log('🔍 === LOGIN ATTEMPT ===');
         console.log('📧 Email:', credentials?.email);
         console.log('👤 Login Type:', credentials?.loginType || 'customer');
 
@@ -76,7 +76,7 @@ export const authConfig: NextAuthConfig = {
               .from('admins')
               .select('*')
               .eq('email', credentials.email)
-              .maybeSingle(); // ✅ Use maybeSingle() instead of single()
+              .maybeSingle();
 
             console.log('👤 Admin found:', !!admin);
             if (error) console.log('❌ DB Error:', error.message);
@@ -114,7 +114,7 @@ export const authConfig: NextAuthConfig = {
               id: admin.id,
               email: admin.email,
               name: admin.name,
-              role: admin.role, // super_admin | admin
+              role: admin.role,
               image: admin.avatar_url || null,
             };
           }
@@ -125,7 +125,7 @@ export const authConfig: NextAuthConfig = {
             .from('users')
             .select('*')
             .eq('email', credentials.email)
-            .maybeSingle(); // ✅ Use maybeSingle() instead of single()
+            .maybeSingle();
 
           console.log('👤 User found:', !!user);
           if (error) console.log('❌ DB Error:', error.message);
@@ -147,7 +147,7 @@ export const authConfig: NextAuthConfig = {
             return null;
           }
 
-          // Update last login (optional field)
+          // Update last login
           await supabaseAdmin
             .from('users')
             .update({ updated_at: new Date().toISOString() })
@@ -188,7 +188,7 @@ export const authConfig: NextAuthConfig = {
   },
 
   pages: {
-    signIn: '/admin/login', // ✅ FIXED: Admin login path
+    signIn: '/admin/login',
     error: '/admin/login',
   },
 
@@ -197,22 +197,21 @@ export const authConfig: NextAuthConfig = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
-  // ✅ CRITICAL: Cookie configuration for production
+  // 🔥 FIXED: Cookie configuration for production
   cookies: {
     sessionToken: {
-      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.session-token`,
+      name: '__Secure-next-auth.session-token',
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
+        secure: true,
+        domain: process.env.NODE_ENV === 'production' ? '.nowiht.com' : undefined,
       },
     },
   },
 
-  // ✅ CRITICAL: Trust proxy/host for Vercel
   trustHost: true,
-
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === 'development',
 };
