@@ -1,15 +1,35 @@
 // app/sitemap.ts
 // ═══════════════════════════════════════════════════════════════
-// 🗺️ NOWIHT - Dynamic Sitemap (Fixed)
-// Direct Supabase queries + proper dynamic rendering
+// 🗺️ NOWIHT - Dynamic Sitemap (FIXED!)
+// Uses SERVICE ROLE KEY to bypass RLS
 // ═══════════════════════════════════════════════════════════════
 
 import { MetadataRoute } from 'next';
-import { supabase } from '@/lib/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600; // 1 hour
+
+/**
+ * Get Supabase admin client (server-side only)
+ * Uses service role key to bypass RLS
+ */
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error('Missing Supabase credentials');
+  }
+
+  return createClient(supabaseUrl, serviceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://nowiht.com';
@@ -68,12 +88,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    // Direct Supabase query for categories
-    const { data: categories } = await supabase
+    // 🔥 FIXED: Use admin client with service role key
+    const supabaseAdmin = getSupabaseAdmin();
+
+    // Fetch categories (bypasses RLS)
+    const { data: categories, error: categoriesError } = await supabaseAdmin
       .from('categories')
       .select('slug, updated_at')
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
+
+    if (categoriesError) {
+      console.error('❌ Categories fetch error:', categoriesError);
+    }
 
     const categoryPages: MetadataRoute.Sitemap = (categories || []).map((cat) => ({
       url: `${baseUrl}/shop/${cat.slug}`,
@@ -82,13 +109,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     }));
 
-    // Direct Supabase query for products
-    const { data: products } = await supabase
+    // Fetch products (bypasses RLS)
+    const { data: products, error: productsError } = await supabaseAdmin
       .from('products')
       .select('slug, updated_at, created_at')
       .eq('status', 'published')
       .order('created_at', { ascending: false })
       .limit(1000);
+
+    if (productsError) {
+      console.error('❌ Products fetch error:', productsError);
+    }
 
     const productPages: MetadataRoute.Sitemap = (products || []).map((product) => ({
       url: `${baseUrl}/product/${product.slug}`,
