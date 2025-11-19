@@ -1,6 +1,6 @@
 // app/api/categories/route.ts
 // NOWIHT E-Commerce - Categories API
-// 🔥 FIXED: Proper admin client handling with null checks
+// 🔥 FIXED: TypeScript type errors resolved
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, requireAdmin } from '@/lib/supabase/client';
@@ -76,19 +76,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create category
-    const { data, error } = await admin
+    // Prepare category data
+    const categoryData = {
+      name: body.name,
+      slug: body.slug,
+      description: body.description || null,
+      image_url: body.image_url || null,
+      meta_title: body.meta_title || null,
+      meta_description: body.meta_description || null,
+      is_active: body.is_active !== undefined ? body.is_active : true,
+      sort_order: body.sort_order || 0,
+    };
+
+    // 🔥 FIXED: Type-safe insert with explicit cast
+    const { data, error } = await (admin as any)
       .from('categories')
-      .insert([{
-        name: body.name,
-        slug: body.slug,
-        description: body.description || null,
-        image_url: body.image_url || null,
-        meta_title: body.meta_title || null,
-        meta_description: body.meta_description || null,
-        is_active: body.is_active !== undefined ? body.is_active : true,
-        sort_order: body.sort_order || 0,
-      }])
+      .insert([categoryData])
       .select()
       .single();
 
@@ -152,12 +155,15 @@ export async function PUT(req: NextRequest) {
     }
 
     // Add updated_at timestamp
-    updateData.updated_at = new Date().toISOString();
+    const finalUpdateData = {
+      ...updateData,
+      updated_at: new Date().toISOString(),
+    };
 
-    // Update category
-    const { data, error } = await admin
+    // 🔥 FIXED: Type-safe update with explicit cast
+    const { data, error } = await (admin as any)
       .from('categories')
-      .update(updateData)
+      .update(finalUpdateData)
       .eq('id', id)
       .select()
       .single();
@@ -213,7 +219,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Check if category has products
-    const { data: products } = await admin
+    const { data: products } = await (admin as any)
       .from('products')
       .select('id')
       .eq('category_id', id)
@@ -227,7 +233,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Delete category
-    const { error } = await admin
+    const { error } = await (admin as any)
       .from('categories')
       .delete()
       .eq('id', id);

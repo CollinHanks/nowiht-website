@@ -1,8 +1,8 @@
 // lib/supabase/client.ts
-// NOWIHT E-Commerce - Supabase Client (FIXED)
-// 🔥 FIXED: Better service role key handling for server-side
+// NOWIHT E-Commerce - Supabase Client (SECURE)
+// 🔒 FIXED: No service key leak to client-side
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // ============================================
 // ENVIRONMENT VALIDATION
@@ -20,66 +20,73 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // ============================================
-// PUBLIC CLIENT (Client-side & Server-side read operations)
+// PUBLIC CLIENT (Client-side & Server-side)
 // ============================================
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false, // Disable session persistence for now
+    persistSession: false,
     autoRefreshToken: false,
   },
 });
 
 // ============================================
-// ADMIN CLIENT (Server-side only - write operations)
+// ADMIN CLIENT (Server-side ONLY)
 // ============================================
 
 /**
- * Get service role key from environment
- * Try multiple possible env variable names for compatibility
+ * Initialize admin client (server-side only)
+ * Uses lazy initialization to avoid client-side execution
  */
-const getServiceRoleKey = (): string | undefined => {
-  // Server-side only check
+let _adminClient: SupabaseClient | null = null;
+
+function initAdminClient(): SupabaseClient | null {
+  // 🔒 CRITICAL: Never run on client-side
   if (typeof window !== 'undefined') {
-    console.warn('⚠️ Service role key should never be accessed on client-side!');
-    return undefined;
+    return null;
   }
 
-  // Try different env variable names
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY; // Fallback (not recommended)
-
-  return key;
-};
-
-const supabaseServiceKey = getServiceRoleKey();
-
-// Log status (server-side only, development only)
-if (typeof window === 'undefined' && process.env.NODE_ENV === 'development') {
-  console.log('🔑 Supabase Service Key:', supabaseServiceKey ? '✅ Found' : '❌ Missing');
-
-  if (!supabaseServiceKey) {
-    console.error(
-      '❌ SUPABASE_SERVICE_ROLE_KEY not found!\n' +
-      'Add this to your .env.local:\n' +
-      'SUPABASE_SERVICE_ROLE_KEY=your_service_role_key'
-    );
+  // Already initialized
+  if (_adminClient) {
+    return _adminClient;
   }
-}
 
-/**
- * Admin client for server-side operations requiring elevated privileges
- * Returns null if service key is not available
- */
-export const supabaseAdmin = supabaseServiceKey
-  ? createClient(supabaseUrl, supabaseServiceKey, {
+  // Get service role key (server-side only)
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!serviceKey) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error(
+        '❌ SUPABASE_SERVICE_ROLE_KEY not found!\n' +
+        'Add this to your .env.local:\n' +
+        'SUPABASE_SERVICE_ROLE_KEY=your_service_role_key'
+      );
+    }
+    return null;
+  }
+
+  // Create admin client
+  _adminClient = createClient(supabaseUrl!, serviceKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
-  })
+  });
+
+  // Log success (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔑 Supabase Service Key: ✅ Found');
+  }
+
+  return _adminClient;
+}
+
+/**
+ * Get admin client (lazy initialization)
+ * Returns null on client-side
+ */
+export const supabaseAdmin: SupabaseClient | null = typeof window === 'undefined'
+  ? initAdminClient()
   : null;
 
 // ============================================
@@ -87,7 +94,38 @@ export const supabaseAdmin = supabaseServiceKey
 // ============================================
 
 /**
- * Test database connection
+ * Check if admin client is available
+ */
+export function hasAdminAccess(): boolean {
+  if (typeof window !== 'undefined') {
+    return false; // Never true on client-side
+  }
+  return initAdminClient() !== null;
+}
+
+/**
+ * Get admin client with safety check
+ * Throws error if not available or called from client-side
+ */
+export function requireAdmin(): SupabaseClient {
+  // 🔒 CRITICAL: Block client-side access
+  if (typeof window !== 'undefined') {
+    throw new Error('❌ requireAdmin() cannot be called from client-side!');
+  }
+
+  const admin = initAdminClient();
+
+  if (!admin) {
+    throw new Error(
+      '❌ Admin access not available. SUPABASE_SERVICE_ROLE_KEY is required.'
+    );
+  }
+
+  return admin;
+}
+
+/**
+ * Test database connection (public client)
  */
 export async function testConnection() {
   try {
@@ -110,24 +148,4 @@ export async function testConnection() {
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
-}
-
-/**
- * Check if admin client is available
- */
-export function hasAdminAccess(): boolean {
-  return supabaseAdmin !== null;
-}
-
-/**
- * Get admin client with safety check
- * Throws error if not available
- */
-export function requireAdmin() {
-  if (!supabaseAdmin) {
-    throw new Error(
-      '❌ Admin access not available. SUPABASE_SERVICE_ROLE_KEY is required for this operation.'
-    );
-  }
-  return supabaseAdmin;
 }
