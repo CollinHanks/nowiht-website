@@ -1,3 +1,7 @@
+// next.config.js
+// NOWIHT E-Commerce - Production Configuration
+// 🔥 FIXED: NextAuth v5 + PWA + Bundle Analyzer
+
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
@@ -155,6 +159,9 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // ============================================
+  // IMAGE OPTIMIZATION
+  // ============================================
   images: {
     unoptimized: true,
 
@@ -170,21 +177,32 @@ const nextConfig = {
         hostname: 'localhost',
         pathname: '/**',
       },
-      // 🔥 CRITICAL: Allow Supabase Storage images
+      // 🔥 CRITICAL: Supabase Storage
       {
         protocol: 'https',
         hostname: '*.supabase.co',
         pathname: '/storage/v1/object/public/**',
+      },
+      // 🔥 PRODUCTION: Your domain
+      {
+        protocol: 'https',
+        hostname: 'nowiht.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.nowiht.com',
+        pathname: '/**',
       },
     ],
 
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
 
-    // ✅ FIXED: Add quality 100 to prevent warning
+    // ✅ Image quality settings
     qualities: [100, 90, 75, 60],
 
-    minimumCacheTTL: 60 * 60 * 24 * 30,
+    minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days
 
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
@@ -193,6 +211,9 @@ const nextConfig = {
     disableStaticImages: false,
   },
 
+  // ============================================
+  // COMPRESSION & PERFORMANCE
+  // ============================================
   compress: true,
 
   compiler: {
@@ -201,21 +222,174 @@ const nextConfig = {
     } : false,
   },
 
-  // 🔥 CRITICAL: Body size limit for Server Actions (50MB)
-  // NOTE: 'api.bodyParser' is NOT supported in App Router (Next.js 13+)
-  // Only use 'experimental.serverActions.bodySizeLimit' for App Router
+  // ============================================
+  // EXPERIMENTAL FEATURES (NextAuth v5 Required)
+  // ============================================
   experimental: {
+    // Optimize package imports
     optimizePackageImports: ['lucide-react', 'framer-motion'],
+
+    // 🔥 CRITICAL: Server Actions config
     serverActions: {
-      bodySizeLimit: '50mb', // This works for both Server Actions AND API Routes in App Router
+      bodySizeLimit: '50mb', // Required for media uploads
+      allowedOrigins: [
+        'localhost:3000',
+        'nowiht.com',
+        'www.nowiht.com',
+        '*.nowiht.com',
+      ],
     },
   },
 
-  // ✅ Turbopack config
+  // ============================================
+  // TURBOPACK
+  // ============================================
   turbopack: {},
 
-  poweredByHeader: false,
+  // ============================================
+  // WEBPACK CONFIGURATION
+  // ============================================
+  webpack: (config, { isServer }) => {
+    // External packages for server-side
+    config.externals.push({
+      'utf-8-validate': 'commonjs utf-8-validate',
+      'bufferutil': 'commonjs bufferutil',
+    });
+
+    // 🔥 CRITICAL: Fix for NextAuth v5 + Edge Runtime
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+      };
+    }
+
+    return config;
+  },
+
+  // ============================================
+  // SECURITY HEADERS
+  // ============================================
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on',
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+        ],
+      },
+      // 🔥 CRITICAL: NextAuth v5 requires specific headers for /api/auth/*
+      {
+        source: '/api/auth/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, max-age=0',
+          },
+        ],
+      },
+    ];
+  },
+
+  // ============================================
+  // REDIRECTS
+  // ============================================
+  async redirects() {
+    return [
+      {
+        source: '/admin',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      // Redirect old URLs (if any)
+      {
+        source: '/shop',
+        destination: '/products',
+        permanent: true,
+      },
+    ];
+  },
+
+  // ============================================
+  // REWRITES (if needed)
+  // ============================================
+  async rewrites() {
+    return [
+      // Add any URL rewrites here
+    ];
+  },
+
+  // ============================================
+  // TYPESCRIPT & ESLINT
+  // ============================================
+  typescript: {
+    // ⚠️ Set to true during build to ignore TypeScript errors
+    ignoreBuildErrors: false,
+  },
+
+  eslint: {
+    // ⚠️ Set to true during build to ignore ESLint errors
+    ignoreDuringBuilds: false,
+  },
+
+  // ============================================
+  // PRODUCTION OPTIMIZATIONS
+  // ============================================
+  swcMinify: true,
   reactStrictMode: true,
+  poweredByHeader: false,
+
+  // ============================================
+  // OUTPUT CONFIGURATION
+  // ============================================
+  output: 'standalone', // For Docker deployments (optional)
+
+  // ============================================
+  // ENVIRONMENT VARIABLES
+  // ============================================
+  env: {
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'https://nowiht.com',
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://nowiht.com',
+  },
+
+  // ============================================
+  // LOGGING (Production)
+  // ============================================
+  logging: {
+    fetches: {
+      fullUrl: false, // Disable in production for security
+    },
+  },
 };
 
 // ✅ Export with Bundle Analyzer + PWA
