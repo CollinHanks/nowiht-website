@@ -1,16 +1,14 @@
 // lib/auth.ts
-// NextAuth v5 Configuration - ADMIN + CUSTOMER Authentication
+// NextAuth v5 Configuration - FINAL FIX
 
 import NextAuth, { NextAuthConfig } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 
-// ✅ CRITICAL: Use SERVICE ROLE KEY for auth queries
-// This bypasses RLS and allows querying users/admins tables
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!, // SERVICE ROLE KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
   {
     auth: {
       autoRefreshToken: false,
@@ -19,14 +17,13 @@ const supabaseAdmin = createClient(
   }
 );
 
-// Extend NextAuth types
 declare module 'next-auth' {
   interface Session {
     user: {
       id: string;
       email: string;
       name: string;
-      role: string; // 'super_admin' | 'admin' | 'customer'
+      role: string;
       image?: string | null;
     };
   }
@@ -54,56 +51,34 @@ export const authConfig: NextAuthConfig = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
-        loginType: { label: 'Login Type', type: 'text' }, // 'admin' | 'customer'
+        loginType: { label: 'Login Type', type: 'text' },
       },
       async authorize(credentials) {
-        console.log('🔍 === LOGIN ATTEMPT ===');
-        console.log('📧 Email:', credentials?.email);
-        console.log('👤 Login Type:', credentials?.loginType || 'customer');
+        console.log('🔍 LOGIN ATTEMPT:', credentials?.email, credentials?.loginType);
 
         if (!credentials?.email || !credentials?.password) {
-          console.log('❌ Missing credentials');
           return null;
         }
 
         const loginType = credentials.loginType as string || 'customer';
 
         try {
-          // ADMIN LOGIN
           if (loginType === 'admin') {
-            console.log('👨‍💼 Checking ADMIN table...');
             const { data: admin, error } = await supabaseAdmin
               .from('admins')
               .select('*')
               .eq('email', credentials.email)
               .maybeSingle();
 
-            console.log('👤 Admin found:', !!admin);
-            if (error) console.log('❌ DB Error:', error.message);
+            if (error || !admin) return null;
 
-            if (error || !admin) {
-              console.log('❌ No admin found');
-              return null;
-            }
-
-            // Verify password
             const isValid = await bcrypt.compare(
               credentials.password as string,
               admin.password
             );
-            console.log('✅ Password valid:', isValid);
 
-            if (!isValid) {
-              console.log('❌ Invalid password');
-              return null;
-            }
+            if (!isValid || !admin.is_active) return null;
 
-            if (!admin.is_active) {
-              console.log('❌ Account disabled');
-              return null;
-            }
-
-            // Update last login
             await supabaseAdmin
               .from('admins')
               .update({ last_login: new Date().toISOString() })
@@ -119,39 +94,21 @@ export const authConfig: NextAuthConfig = {
             };
           }
 
-          // CUSTOMER LOGIN
-          console.log('🛍️ Checking USERS table...');
+          // Customer login
           const { data: user, error } = await supabaseAdmin
             .from('users')
             .select('*')
             .eq('email', credentials.email)
             .maybeSingle();
 
-          console.log('👤 User found:', !!user);
-          if (error) console.log('❌ DB Error:', error.message);
+          if (error || !user) return null;
 
-          if (error || !user) {
-            console.log('❌ No user found');
-            return null;
-          }
-
-          // Verify password
           const isValid = await bcrypt.compare(
             credentials.password as string,
             user.password_hash
           );
-          console.log('✅ Password valid:', isValid);
 
-          if (!isValid) {
-            console.log('❌ Invalid password');
-            return null;
-          }
-
-          // Update last login
-          await supabaseAdmin
-            .from('users')
-            .update({ updated_at: new Date().toISOString() })
-            .eq('id', user.id);
+          if (!isValid) return null;
 
           console.log('✅ Customer login successful!');
           return {
@@ -194,27 +151,14 @@ export const authConfig: NextAuthConfig = {
 
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
 
-  // 🔥 FIXED: Remove domain restriction - let browser handle it
-  cookies: {
-    sessionToken: {
-      name: '__Secure-next-auth.session-token',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: true,
-        // 🔥 REMOVED: domain restriction
-        // This allows cookie to work on both nowiht.com and www.nowiht.com
-      },
-    },
-  },
-
+  // 🔥 CRITICAL FIX: Use default cookie name (no __Secure- prefix)
+  // This allows getToken() to work without additional config
   trustHost: true,
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
+  debug: true,
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
