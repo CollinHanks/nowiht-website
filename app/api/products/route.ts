@@ -1,6 +1,6 @@
 // app/api/products/route.ts
 // Public Products API - For Shop/Homepage
-// ✅ FIXED: Added color parsing
+// ✅ FIXED: Added color parsing + NULL CHECK
 
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
@@ -12,6 +12,11 @@ export const revalidate = 0;
 // HELPER: Parse colors from database
 // ============================================
 function parseProductColors(product: any) {
+  // ✅ NULL CHECK - CRITICAL FIX
+  if (!product) {
+    return product;
+  }
+
   try {
     // If colors is an array of strings (from database)
     if (Array.isArray(product.colors)) {

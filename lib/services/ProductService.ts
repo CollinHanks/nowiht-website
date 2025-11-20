@@ -9,6 +9,11 @@ import type { Product } from '@/types';
 // HELPER: Parse colors from database
 // ============================================
 function parseProductColors(product: any): Product {
+  // ✅ NULL CHECK - CRITICAL FIX
+  if (!product) {
+    return product;
+  }
+
   try {
     // If colors is an array of strings (from database)
     if (Array.isArray(product.colors)) {
