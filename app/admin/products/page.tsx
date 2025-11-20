@@ -2,7 +2,7 @@
 
 // app/admin/products/page.tsx
 // NOWIHT Admin - Products List
-// 🔥 FIXED: Edit link corrected to /admin/products/{id}/edit
+// 🔥 NEW: Products management page
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
