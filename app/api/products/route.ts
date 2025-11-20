@@ -1,6 +1,6 @@
 // app/api/products/route.ts
 // Public Products API - For Shop/Homepage
-// ✅ FIXED: Added color parsing + NULL CHECK
+// ✅ FIXED: Added color parsing + NULL CHECK + ID HANDLER
 
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
@@ -52,10 +52,39 @@ function parseProductColors(product: any) {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
     const category = searchParams.get('category');
     const featured = searchParams.get('featured');
     const limit = searchParams.get('limit');
     const slug = searchParams.get('slug');
+
+    // ============================================
+    // GET SINGLE PRODUCT BY ID
+    // ✅ NEW: Added id handler for edit page
+    // ============================================
+    if (id) {
+      const { data: product, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('❌ Product fetch error (by id):', error);
+        return NextResponse.json(
+          { error: 'Product not found', details: error.message },
+          { status: 404 }
+        );
+      }
+
+      // ✅ Parse colors before returning
+      const parsedProduct = parseProductColors(product);
+
+      return NextResponse.json({
+        success: true,
+        product: parsedProduct,
+      });
+    }
 
     // ============================================
     // GET SINGLE PRODUCT BY SLUG
@@ -69,7 +98,7 @@ export async function GET(request: Request) {
         .single();
 
       if (error) {
-        console.error('❌ Product fetch error:', error);
+        console.error('❌ Product fetch error (by slug):', error);
         return NextResponse.json(
           { error: 'Product not found', details: error.message },
           { status: 404 }
