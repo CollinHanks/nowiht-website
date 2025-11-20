@@ -1,3 +1,5 @@
+"use client"
+
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -29,7 +31,7 @@ export default function CommunityImpactPage() {
   return (
     <>
       <Header />
-      
+
       <main className="bg-white">
         {/* Hero Section */}
         <section className="relative h-[60vh] min-h-[400px] flex items-center justify-center overflow-hidden">
