@@ -2,7 +2,7 @@
 // ═══════════════════════════════════════════════════════════════
 // 🔒 NOWIHT - Admin Products API (NextAuth v5 Compatible)
 // Protected with adminGuard + Supabase service role
-// ✅ COMPLETE FIX: Field transformation (camelCase → snake_case)
+// ✅ PROFESSIONAL: With audit trail (created_by, updated_by)
 // ═══════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -83,13 +83,15 @@ export const POST = withAdminAuth(async (request, admin) => {
     const transformedData = transformFieldNames(productData);
     console.log('🔄 Transformed data:', Object.keys(transformedData));
 
-    // Add metadata
+    // ✅ PROFESSIONAL: Add audit trail metadata
     const enrichedData = {
       ...transformedData,
-      created_by: admin.email,
-      updated_by: admin.email,
+      created_by: admin.email,              // Who created
+      updated_by: admin.email,              // Who last updated
       in_stock: (transformedData.stock || 0) > 0,
     };
+
+    console.log('👤 Audit trail: created_by =', admin.email);
 
     const { data: product, error } = await supabaseAdmin
       .from('products')
@@ -102,7 +104,7 @@ export const POST = withAdminAuth(async (request, admin) => {
       throw error;
     }
 
-    console.log('✅ Product created:', product.name);
+    console.log('✅ Product created:', product.name, 'by', admin.email);
 
     return NextResponse.json({
       success: true,
@@ -155,16 +157,18 @@ export async function PUT(request: NextRequest) {
     const transformedData = transformFieldNames(productData);
     console.log('🔄 Transformed fields:', Object.keys(transformedData));
 
-    // Add metadata
+    // ✅ PROFESSIONAL: Add audit trail metadata
     const enrichedData = {
       ...transformedData,
-      updated_by: admin.email,
-      updated_at: new Date().toISOString(),
+      updated_by: admin.email,              // Track who updated
+      updated_at: new Date().toISOString(), // Track when updated
     };
 
     if ('stock' in transformedData) {
       enrichedData.in_stock = (transformedData.stock || 0) > 0;
     }
+
+    console.log('👤 Audit trail: updated_by =', admin.email);
 
     const { data: product, error } = await supabaseAdmin
       .from('products')
@@ -178,7 +182,7 @@ export async function PUT(request: NextRequest) {
       throw error;
     }
 
-    console.log('✅ Product updated:', product.name);
+    console.log('✅ Product updated:', product.name, 'by', admin.email);
 
     return NextResponse.json({
       success: true,
@@ -221,7 +225,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    console.log('🗑️ Deleting product ID:', id);
+    console.log('🗑️ Deleting product ID:', id, 'by', admin.email);
 
     const supabaseAdmin = requireAdmin();
 
@@ -235,7 +239,7 @@ export async function DELETE(request: NextRequest) {
       throw error;
     }
 
-    console.log('✅ Product deleted');
+    console.log('✅ Product deleted by', admin.email);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
