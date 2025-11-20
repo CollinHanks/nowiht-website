@@ -1,12 +1,48 @@
 // app/api/products/route.ts
 // Public Products API - For Shop/Homepage
-// FIXED: Removed JOIN, using category string
+// ✅ FIXED: Added color parsing
 
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+// ============================================
+// HELPER: Parse colors from database
+// ============================================
+function parseProductColors(product: any) {
+  try {
+    // If colors is an array of strings (from database)
+    if (Array.isArray(product.colors)) {
+      product.colors = product.colors.map((color: any) => {
+        // If it's already an object, return it
+        if (typeof color === 'object' && color !== null && color.name && color.hex) {
+          return color;
+        }
+
+        // If it's a JSON string, parse it
+        if (typeof color === 'string') {
+          try {
+            const parsed = JSON.parse(color);
+            return parsed;
+          } catch (e) {
+            console.error('❌ Failed to parse color:', color);
+            // Return a default color object
+            return { name: color, hex: '#000000' };
+          }
+        }
+
+        return color;
+      });
+    }
+
+    return product;
+  } catch (error) {
+    console.error('❌ Error parsing product colors:', error);
+    return product;
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -35,9 +71,12 @@ export async function GET(request: Request) {
         );
       }
 
+      // ✅ Parse colors before returning
+      const parsedProduct = parseProductColors(product);
+
       return NextResponse.json({
         success: true,
-        product,
+        product: parsedProduct,
       });
     }
 
@@ -75,10 +114,13 @@ export async function GET(request: Request) {
       );
     }
 
+    // ✅ Parse colors for all products
+    const parsedProducts = products?.map(parseProductColors) || [];
+
     return NextResponse.json({
       success: true,
-      products: products || [],
-      count: products?.length || 0,
+      products: parsedProducts,
+      count: parsedProducts.length,
     });
   } catch (error: any) {
     console.error('🚨 Products API error:', error);
