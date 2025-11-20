@@ -1,223 +1,171 @@
-// app/api/admin/products/route.ts
-// ═══════════════════════════════════════════════════════════════
-// 🔒 NOWIHT - Admin Products API (NextAuth v5 Compatible)
-// Protected with adminGuard + Supabase service role
-// ✅ FIXED: Added camelCase to snake_case field transformation
-// ═══════════════════════════════════════════════════════════════
+// app/api/products/route.ts
+// Public Products API - For Shop/Homepage
+// ✅ COMPLETE FIX: NULL check + ID handler + Color parsing
 
-import { NextRequest, NextResponse } from 'next/server';
-import { withAdminAuth, getCurrentAdmin } from '@/lib/auth/adminGuard';
-import { requireAdmin } from '@/lib/supabase/client';
+import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase/client';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 // ============================================
-// HELPER: Transform camelCase to snake_case
+// HELPER: Parse colors from database
 // ============================================
-function transformFieldNames(data: any): any {
-  const transformed: any = {};
-
-  for (const [key, value] of Object.entries(data)) {
-    // Convert camelCase to snake_case
-    const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-    transformed[snakeKey] = value;
+function parseProductColors(product: any) {
+  // ✅ NULL CHECK - CRITICAL FIX
+  if (!product) {
+    return product;
   }
 
-  return transformed;
-}
-
-/**
- * GET /api/admin/products
- * Get all products (including drafts)
- * PROTECTED: Admin only
- */
-export async function GET() {
   try {
-    // ✅ Step 1: Check admin access (NextAuth v5)
-    const admin = await getCurrentAdmin();
+    // If colors is an array of strings (from database)
+    if (Array.isArray(product.colors)) {
+      product.colors = product.colors.map((color: any) => {
+        // If it's already an object, return it
+        if (typeof color === 'object' && color !== null && color.name && color.hex) {
+          return color;
+        }
 
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: 'Admin access required' },
-        { status: 401 }
-      );
+        // If it's a JSON string, parse it
+        if (typeof color === 'string') {
+          try {
+            const parsed = JSON.parse(color);
+            return parsed;
+          } catch (e) {
+            console.error('❌ Failed to parse color:', color);
+            // Return a default color object
+            return { name: color, hex: '#000000' };
+          }
+        }
+
+        return color;
+      });
     }
 
-    // ✅ Step 2: Use service role (bypasses RLS)
-    const supabaseAdmin = requireAdmin();
+    return product;
+  } catch (error) {
+    console.error('❌ Error parsing product colors:', error);
+    return product;
+  }
+}
 
-    const { data: products, error } = await supabaseAdmin
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const category = searchParams.get('category');
+    const featured = searchParams.get('featured');
+    const limit = searchParams.get('limit');
+    const slug = searchParams.get('slug');
+
+    // ============================================
+    // GET SINGLE PRODUCT BY ID
+    // ✅ NEW: Added for admin edit page
+    // ============================================
+    if (id) {
+      console.log('🔍 Fetching product by ID:', id);
+
+      const { data: product, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('❌ Product fetch error (by id):', error);
+        return NextResponse.json(
+          { error: 'Product not found', details: error.message },
+          { status: 404 }
+        );
+      }
+
+      console.log('✅ Product found by ID:', product?.name);
+
+      // ✅ Parse colors before returning
+      const parsedProduct = parseProductColors(product);
+
+      return NextResponse.json({
+        success: true,
+        product: parsedProduct,
+      });
+    }
+
+    // ============================================
+    // GET SINGLE PRODUCT BY SLUG
+    // ============================================
+    if (slug) {
+      console.log('🔍 Fetching product by slug:', slug);
+
+      const { data: product, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('slug', slug)
+        .eq('status', 'published')
+        .single();
+
+      if (error) {
+        console.error('❌ Product fetch error (by slug):', error);
+        return NextResponse.json(
+          { error: 'Product not found', details: error.message },
+          { status: 404 }
+        );
+      }
+
+      // ✅ Parse colors before returning
+      const parsedProduct = parseProductColors(product);
+
+      return NextResponse.json({
+        success: true,
+        product: parsedProduct,
+      });
+    }
+
+    // ============================================
+    // GET MULTIPLE PRODUCTS WITH FILTERS
+    // ============================================
+    let query = supabase
       .from('products')
       .select('*')
+      .eq('status', 'published')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    // Filter by category (using category string, not category_id)
+    if (category && category !== 'all') {
+      query = query.eq('category', category);
+    }
+
+    // Filter by featured (using is_best_seller)
+    if (featured === 'true') {
+      query = query.eq('is_best_seller', true);
+    }
+
+    // Limit results
+    if (limit) {
+      query = query.limit(parseInt(limit));
+    }
+
+    const { data: products, error } = await query;
+
+    if (error) {
+      console.error('❌ Products fetch error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch products', details: error.message },
+        { status: 500 }
+      );
+    }
+
+    // ✅ Parse colors for all products
+    const parsedProducts = products?.map(parseProductColors) || [];
 
     return NextResponse.json({
       success: true,
-      products: products || [],
+      products: parsedProducts,
+      count: parsedProducts.length,
     });
   } catch (error: any) {
-    console.error('❌ Error fetching products:', error);
-
+    console.error('🚨 Products API error:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to fetch products' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * POST /api/admin/products
- * Create a new product
- * PROTECTED: Admin only (using withAdminAuth wrapper)
- */
-export const POST = withAdminAuth(async (request, admin) => {
-  try {
-    const productData = await request.json();
-    const supabaseAdmin = requireAdmin();
-
-    // ✅ Transform camelCase to snake_case
-    const transformedData = transformFieldNames(productData);
-
-    // Add metadata
-    const enrichedData = {
-      ...transformedData,
-      created_by: admin.email,
-      updated_by: admin.email,
-      in_stock: (transformedData.stock || 0) > 0,
-    };
-
-    const { data: product, error } = await supabaseAdmin
-      .from('products')
-      .insert([enrichedData])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json({
-      success: true,
-      product,
-    });
-  } catch (error: any) {
-    console.error('❌ Error creating product:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
-  }
-});
-
-/**
- * PUT /api/admin/products?id=xxx
- * Update a product
- * PROTECTED: Admin only
- */
-export async function PUT(request: NextRequest) {
-  try {
-    // ✅ Check admin access
-    const admin = await getCurrentAdmin();
-
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: 'Admin access required' },
-        { status: 401 }
-      );
-    }
-
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'Product ID is required' },
-        { status: 400 }
-      );
-    }
-
-    const productData = await request.json();
-    const supabaseAdmin = requireAdmin();
-
-    // ✅ Transform camelCase to snake_case
-    const transformedData = transformFieldNames(productData);
-
-    // Add metadata
-    const enrichedData = {
-      ...transformedData,
-      updated_by: admin.email,
-      updated_at: new Date().toISOString(),
-    };
-
-    if ('stock' in transformedData) {
-      enrichedData.in_stock = (transformedData.stock || 0) > 0;
-    }
-
-    const { data: product, error } = await supabaseAdmin
-      .from('products')
-      .update(enrichedData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json({
-      success: true,
-      product,
-    });
-  } catch (error: any) {
-    console.error('❌ Error updating product:', error);
-
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * DELETE /api/admin/products?id=xxx
- * Delete a product
- * PROTECTED: Admin only
- */
-export async function DELETE(request: NextRequest) {
-  try {
-    // ✅ Check admin access
-    const admin = await getCurrentAdmin();
-
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: 'Admin access required' },
-        { status: 401 }
-      );
-    }
-
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'Product ID is required' },
-        { status: 400 }
-      );
-    }
-
-    const supabaseAdmin = requireAdmin();
-
-    const { error } = await supabaseAdmin
-      .from('products')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('❌ Error deleting product:', error);
-
-    return NextResponse.json(
-      { success: false, error: error.message },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }

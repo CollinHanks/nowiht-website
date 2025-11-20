@@ -2,6 +2,7 @@
 // ═══════════════════════════════════════════════════════════════
 // 🔒 NOWIHT - Admin Products API (NextAuth v5 Compatible)
 // Protected with adminGuard + Supabase service role
+// ✅ COMPLETE FIX: Field transformation (camelCase → snake_case)
 // ═══════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,6 +10,21 @@ import { withAdminAuth, getCurrentAdmin } from '@/lib/auth/adminGuard';
 import { requireAdmin } from '@/lib/supabase/client';
 
 export const dynamic = 'force-dynamic';
+
+// ============================================
+// HELPER: Transform camelCase to snake_case
+// ============================================
+function transformFieldNames(data: any): any {
+  const transformed: any = {};
+
+  for (const [key, value] of Object.entries(data)) {
+    // Convert camelCase to snake_case
+    const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+    transformed[snakeKey] = value;
+  }
+
+  return transformed;
+}
 
 /**
  * GET /api/admin/products
@@ -61,12 +77,18 @@ export const POST = withAdminAuth(async (request, admin) => {
     const productData = await request.json();
     const supabaseAdmin = requireAdmin();
 
+    console.log('📦 Creating product, original data:', Object.keys(productData));
+
+    // ✅ Transform camelCase to snake_case
+    const transformedData = transformFieldNames(productData);
+    console.log('🔄 Transformed data:', Object.keys(transformedData));
+
     // Add metadata
     const enrichedData = {
-      ...productData,
+      ...transformedData,
       created_by: admin.email,
       updated_by: admin.email,
-      in_stock: (productData.stock || 0) > 0,
+      in_stock: (transformedData.stock || 0) > 0,
     };
 
     const { data: product, error } = await supabaseAdmin
@@ -75,7 +97,12 @@ export const POST = withAdminAuth(async (request, admin) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error creating product:', error);
+      throw error;
+    }
+
+    console.log('✅ Product created:', product.name);
 
     return NextResponse.json({
       success: true,
@@ -117,18 +144,26 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    console.log('📝 Updating product ID:', id);
+
     const productData = await request.json();
     const supabaseAdmin = requireAdmin();
 
+    console.log('📦 Original data fields:', Object.keys(productData));
+
+    // ✅ Transform camelCase to snake_case
+    const transformedData = transformFieldNames(productData);
+    console.log('🔄 Transformed fields:', Object.keys(transformedData));
+
     // Add metadata
     const enrichedData = {
-      ...productData,
+      ...transformedData,
       updated_by: admin.email,
       updated_at: new Date().toISOString(),
     };
 
-    if ('stock' in productData) {
-      enrichedData.in_stock = (productData.stock || 0) > 0;
+    if ('stock' in transformedData) {
+      enrichedData.in_stock = (transformedData.stock || 0) > 0;
     }
 
     const { data: product, error } = await supabaseAdmin
@@ -138,7 +173,12 @@ export async function PUT(request: NextRequest) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error updating product:', error);
+      throw error;
+    }
+
+    console.log('✅ Product updated:', product.name);
 
     return NextResponse.json({
       success: true,
@@ -181,6 +221,8 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    console.log('🗑️ Deleting product ID:', id);
+
     const supabaseAdmin = requireAdmin();
 
     const { error } = await supabaseAdmin
@@ -188,7 +230,12 @@ export async function DELETE(request: NextRequest) {
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error deleting product:', error);
+      throw error;
+    }
+
+    console.log('✅ Product deleted');
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
