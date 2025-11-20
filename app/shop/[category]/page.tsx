@@ -287,7 +287,7 @@ export default function CategoryPage({ params }: CategoryPageParams) {
                   No products found in this category yet.
                 </p>
                 <Link
-                  href="/product"
+                  href="/shop"
                   className="inline-block px-8 py-3 bg-black text-white font-medium hover:bg-gray-800 transition-colors"
                 >
                   Browse All Products

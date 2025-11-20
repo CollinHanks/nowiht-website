@@ -267,7 +267,7 @@ export default function CollectionsPage() {
               Browse our complete collection for more styles and options.
             </p>
             <Link
-              href="/product"
+              href="/shop"
               className="inline-flex items-center gap-2 px-10 py-3 border border-black text-black text-sm tracking-wider hover:bg-black hover:text-white transition-all duration-300"
             >
               <span>VIEW ALL</span>

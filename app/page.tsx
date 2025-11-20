@@ -424,7 +424,7 @@ export default function HomePage() {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/admin/products', {
+        const response = await fetch('/api/products', {
           cache: 'no-store',
         });
 
