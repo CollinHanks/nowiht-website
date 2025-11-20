@@ -3,7 +3,7 @@
  * 
  * Handles all category-related operations with Supabase
  * Interface uses camelCase, DB uses snake_case
- * FIXED: Added search() method
+ * ✅ FIXED: image_url field mapping
  */
 
 import { supabase } from "@/lib/supabase/client";
@@ -14,7 +14,7 @@ export interface Category {
   name: string;
   slug: string;
   description?: string;
-  image?: string;
+  image?: string;                      // Frontend uses "image"
   parentId?: string;
   seoTitle?: string;
   seoDescription?: string;
@@ -32,13 +32,13 @@ function mapFromDB(data: any): Category {
     name: data.name,
     slug: data.slug,
     description: data.description,
-    image: data.image,
+    image: data.image_url,           // ✅ FIXED: DB uses image_url!
     parentId: data.parent_id,
     seoTitle: data.seo_title,
     seoDescription: data.seo_description,
-    status: data.status,
+    status: data.status || data.is_active ? 'active' : 'inactive',  // ✅ Handle both status/is_active
     sortOrder: data.sort_order,
-    productCount: data.product_count,
+    productCount: data.product_count || 0,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };
@@ -51,11 +51,11 @@ function mapToDB(data: Partial<Category>): any {
   if (data.name !== undefined) result.name = data.name;
   if (data.slug !== undefined) result.slug = data.slug;
   if (data.description !== undefined) result.description = data.description;
-  if (data.image !== undefined) result.image = data.image;
+  if (data.image !== undefined) result.image_url = data.image;  // ✅ FIXED: Map to image_url
   if (data.parentId !== undefined) result.parent_id = data.parentId;
   if (data.seoTitle !== undefined) result.seo_title = data.seoTitle;
   if (data.seoDescription !== undefined) result.seo_description = data.seoDescription;
-  if (data.status !== undefined) result.status = data.status;
+  if (data.status !== undefined) result.is_active = data.status === 'active';  // ✅ Map status to is_active
   if (data.sortOrder !== undefined) result.sort_order = data.sortOrder;
   if (data.productCount !== undefined) result.product_count = data.productCount;
 
@@ -71,16 +71,18 @@ export const CategoryService = {
       const { data, error } = await supabase
         .from("categories")
         .select("*")
+        .eq("is_active", true)           // ✅ Only active categories
         .order("sort_order", { ascending: true });
 
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("❌ Supabase error:", error);
         return [];
       }
 
+      console.log("✅ Categories loaded:", data?.length || 0);
       return (data || []).map(mapFromDB);
     } catch (error) {
-      console.error("Error loading categories:", error);
+      console.error("❌ Error loading categories:", error);
       return [];
     }
   },
@@ -97,13 +99,13 @@ export const CategoryService = {
         .single();
 
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("❌ Supabase error:", error);
         return null;
       }
 
       return data ? mapFromDB(data) : null;
     } catch (error) {
-      console.error("Error loading category:", error);
+      console.error("❌ Error loading category:", error);
       return null;
     }
   },
@@ -120,13 +122,13 @@ export const CategoryService = {
         .single();
 
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("❌ Supabase error:", error);
         return null;
       }
 
       return data ? mapFromDB(data) : null;
     } catch (error) {
-      console.error("Error loading category:", error);
+      console.error("❌ Error loading category:", error);
       return null;
     }
   },
@@ -140,16 +142,17 @@ export const CategoryService = {
         .from("categories")
         .select("*")
         .is("parent_id", null)
+        .eq("is_active", true)
         .order("sort_order", { ascending: true });
 
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("❌ Supabase error:", error);
         return [];
       }
 
       return (data || []).map(mapFromDB);
     } catch (error) {
-      console.error("Error loading parent categories:", error);
+      console.error("❌ Error loading parent categories:", error);
       return [];
     }
   },
@@ -163,23 +166,23 @@ export const CategoryService = {
         .from("categories")
         .select("*")
         .eq("parent_id", parentId)
+        .eq("is_active", true)
         .order("sort_order", { ascending: true });
 
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("❌ Supabase error:", error);
         return [];
       }
 
       return (data || []).map(mapFromDB);
     } catch (error) {
-      console.error("Error loading subcategories:", error);
+      console.error("❌ Error loading subcategories:", error);
       return [];
     }
   },
 
   /**
    * Search categories by name or slug
-   * NEW: Added for search functionality
    */
   search: async (query: string): Promise<Category[]> => {
     try {
@@ -193,16 +196,17 @@ export const CategoryService = {
         .from("categories")
         .select("*")
         .or(`name.ilike.${searchTerm},slug.ilike.${searchTerm},description.ilike.${searchTerm}`)
+        .eq("is_active", true)
         .order("sort_order", { ascending: true });
 
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("❌ Supabase error:", error);
         return [];
       }
 
       return (data || []).map(mapFromDB);
     } catch (error) {
-      console.error("Error searching categories:", error);
+      console.error("❌ Error searching categories:", error);
       return [];
     }
   },
@@ -216,11 +220,11 @@ export const CategoryService = {
         name: data.name,
         slug: data.slug || generateSlug(data.name),
         description: data.description,
-        image: data.image,
+        image_url: data.image,           // ✅ FIXED
         parent_id: data.parentId || null,
         seo_title: data.seoTitle,
         seo_description: data.seoDescription,
-        status: data.status,
+        is_active: data.status === 'active',  // ✅ FIXED
         sort_order: data.sortOrder,
         product_count: 0,
       };
@@ -232,13 +236,13 @@ export const CategoryService = {
         .single();
 
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("❌ Supabase error:", error);
         return null;
       }
 
       return created ? mapFromDB(created) : null;
     } catch (error) {
-      console.error("Error creating category:", error);
+      console.error("❌ Error creating category:", error);
       return null;
     }
   },
@@ -263,13 +267,13 @@ export const CategoryService = {
         .single();
 
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("❌ Supabase error:", error);
         return null;
       }
 
       return updated ? mapFromDB(updated) : null;
     } catch (error) {
-      console.error("Error updating category:", error);
+      console.error("❌ Error updating category:", error);
       return null;
     }
   },
@@ -291,13 +295,13 @@ export const CategoryService = {
         .eq("id", id);
 
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("❌ Supabase error:", error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error("Error deleting category:", error);
+      console.error("❌ Error deleting category:", error);
       throw error;
     }
   },
@@ -321,7 +325,7 @@ export const CategoryService = {
           .eq("id", categoryIds[i]);
       }
     } catch (error) {
-      console.error("Error reordering categories:", error);
+      console.error("❌ Error reordering categories:", error);
     }
   },
 };
