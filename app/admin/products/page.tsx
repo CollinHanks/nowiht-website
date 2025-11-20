@@ -2,7 +2,7 @@
 
 // app/admin/products/page.tsx
 // NOWIHT Admin - Products List
-// 🔥 NEW: Products management page
+// 🔥 FIXED: Edit link corrected to /admin/products/{id}/edit
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -295,10 +295,10 @@ export default function AdminProductsPage() {
                       <td className="px-6 py-4">
                         <span
                           className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${(product.stock || 0) === 0
-                              ? "bg-red-50 text-red-600"
-                              : (product.stock || 0) < 10
-                                ? "bg-yellow-50 text-yellow-600"
-                                : "bg-green-50 text-green-600"
+                            ? "bg-red-50 text-red-600"
+                            : (product.stock || 0) < 10
+                              ? "bg-yellow-50 text-yellow-600"
+                              : "bg-green-50 text-green-600"
                             }`}
                         >
                           {product.stock || 0}
@@ -308,8 +308,8 @@ export default function AdminProductsPage() {
                         <button
                           onClick={() => handleToggleStatus(product)}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${product.status === "published"
-                              ? "bg-green-50 text-green-700"
-                              : "bg-gray-100 text-gray-700"
+                            ? "bg-green-50 text-green-700"
+                            : "bg-gray-100 text-gray-700"
                             }`}
                         >
                           {product.status === "published" ? (
@@ -332,7 +332,7 @@ export default function AdminProductsPage() {
                               <Eye className="w-4 h-4" />
                             </button>
                           </Link>
-                          <Link href={`/admin/products/edit/${product.id}`}>
+                          <Link href={`/admin/products/${product.id}/edit`}>
                             <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
                               <Edit className="w-4 h-4" />
                             </button>
