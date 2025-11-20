@@ -1,61 +1,53 @@
-/**
- * ProductService - API Route-Based CRUD Operations
- * 
- * FIXED: Added search with filters and searchCount methods
- */
+// lib/services/ProductService.ts
+// ═══════════════════════════════════════════════════════════════
+// 🛍️ NOWIHT - Product Service (API-based)
+// ═══════════════════════════════════════════════════════════════
 
 import type { Product } from '@/types';
 
-// Helper functions
-const generateSKU = (category: string): string => {
-  const prefix = category.substring(0, 3).toUpperCase();
-  const timestamp = Date.now().toString().slice(-6);
-  const random = Math.floor(Math.random() * 1000)
-    .toString()
-    .padStart(3, '0');
-  return `${prefix}-${timestamp}${random}`;
-};
+// ============================================
+// HELPER: Parse colors from database
+// ============================================
+function parseProductColors(product: any): Product {
+  try {
+    // If colors is an array of strings (from database)
+    if (Array.isArray(product.colors)) {
+      product.colors = product.colors.map((color: any) => {
+        // If it's already an object, return it
+        if (typeof color === 'object' && color.name && color.hex) {
+          return color;
+        }
 
-const generateSlug = (name: string): string => {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-};
+        // If it's a JSON string, parse it
+        if (typeof color === 'string') {
+          try {
+            return JSON.parse(color);
+          } catch (e) {
+            console.error('Failed to parse color:', color);
+            // Return a default color object
+            return { name: color, hex: '#000000' };
+          }
+        }
 
-// ═══════════════════════════════════════════════════════════════
-// 📦 CRUD OPERATIONS
-// ═══════════════════════════════════════════════════════════════
+        return color;
+      });
+    }
+
+    return product;
+  } catch (error) {
+    console.error('Error parsing product colors:', error);
+    return product;
+  }
+}
 
 export const ProductService = {
   /**
    * GET ALL PRODUCTS
-   * API: GET /api/admin/products
+   * API: GET /api/products
    */
-  getAll: async (options?: {
-    category?: string;
-    status?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<Product[]> => {
+  getAll: async (): Promise<Product[]> => {
     try {
-      let url = '/api/admin/products?';
-
-      if (options?.category) {
-        url += `category=${options.category}&`;
-      }
-      if (options?.status) {
-        url += `status=${options.status}&`;
-      }
-      if (options?.limit) {
-        url += `limit=${options.limit}&`;
-      }
-      if (options?.offset) {
-        url += `offset=${options.offset}&`;
-      }
-
-      const response = await fetch(url, {
-        method: 'GET',
+      const response = await fetch('/api/products', {
         cache: 'no-store',
       });
 
@@ -64,7 +56,9 @@ export const ProductService = {
       }
 
       const data = await response.json();
-      return data.products || [];
+
+      // ✅ Parse colors for each product
+      return data.products.map(parseProductColors);
     } catch (error) {
       console.error('Error fetching products:', error);
       return [];
@@ -73,27 +67,97 @@ export const ProductService = {
 
   /**
    * GET PRODUCT BY ID
+   * API: GET /api/products?id=xxx
    */
   getById: async (id: string): Promise<Product | null> => {
     try {
-      const products = await ProductService.getAll();
-      return products.find((p) => p.id === id) || null;
+      const response = await fetch(`/api/products?id=${id}`, {
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error('Product not found');
+      }
+
+      const data = await response.json();
+
+      // ✅ Parse colors
+      return parseProductColors(data.product);
     } catch (error) {
-      console.error('Error fetching product by id:', error);
+      console.error('Error fetching product:', error);
       return null;
     }
   },
 
   /**
    * GET PRODUCT BY SLUG
+   * API: GET /api/products?slug=xxx
    */
   getBySlug: async (slug: string): Promise<Product | null> => {
     try {
-      const products = await ProductService.getAll();
-      return products.find((p) => p.slug === slug) || null;
+      const response = await fetch(`/api/products?slug=${slug}`, {
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error('Product not found');
+      }
+
+      const data = await response.json();
+
+      // ✅ Parse colors
+      return parseProductColors(data.product);
     } catch (error) {
-      console.error('Error fetching product by slug:', error);
+      console.error('Error fetching product:', error);
       return null;
+    }
+  },
+
+  /**
+   * GET PRODUCTS BY CATEGORY
+   * API: GET /api/products?category=xxx
+   */
+  getByCategory: async (category: string): Promise<Product[]> => {
+    try {
+      const response = await fetch(`/api/products?category=${category}`, {
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+
+      const data = await response.json();
+
+      // ✅ Parse colors for each product
+      return data.products.map(parseProductColors);
+    } catch (error) {
+      console.error('Error fetching products by category:', error);
+      return [];
+    }
+  },
+
+  /**
+   * GET FEATURED PRODUCTS
+   * API: GET /api/products?featured=true
+   */
+  getFeatured: async (): Promise<Product[]> => {
+    try {
+      const response = await fetch('/api/products?featured=true', {
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch featured products');
+      }
+
+      const data = await response.json();
+
+      // ✅ Parse colors for each product
+      return data.products.map(parseProductColors);
+    } catch (error) {
+      console.error('Error fetching featured products:', error);
+      return [];
     }
   },
 
@@ -103,40 +167,12 @@ export const ProductService = {
    */
   create: async (productData: Partial<Product>): Promise<Product> => {
     try {
-      // Prepare product data
-      const productToCreate = {
-        name: productData.name || '',
-        slug: productData.slug || generateSlug(productData.name || ''),
-        sku: productData.sku || generateSKU(productData.category || 'product'),
-        description: productData.description || '',
-        price: productData.price || 0,
-        compare_at_price: productData.compareAtPrice,
-        category: productData.category || '',
-        images: productData.images || [],
-        sizes: productData.sizes || ['XS', 'S', 'M', 'L', 'XL'],
-        colors: productData.colors || [],
-        stock: productData.stock || 0,
-        in_stock: productData.inStock !== undefined ? productData.inStock : true,
-        material: productData.material || '',
-        care: productData.care || [],
-        features: productData.features || [],
-        is_new: productData.isNew || false,
-        is_best_seller: productData.isBestSeller || false,
-        is_on_sale: productData.isOnSale || false,
-        status: productData.status || 'draft',
-        seo_title: productData.seoTitle,
-        seo_description: productData.seoDescription,
-        tags: productData.tags || [],
-        collection: productData.collection,
-        brand: 'NOWIHT',
-      };
-
       const response = await fetch('/api/admin/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(productToCreate),
+        body: JSON.stringify(productData),
       });
 
       if (!response.ok) {
@@ -145,7 +181,9 @@ export const ProductService = {
       }
 
       const data = await response.json();
-      return data.product;
+
+      // ✅ Parse colors
+      return parseProductColors(data.product);
     } catch (error) {
       console.error('Error creating product:', error);
       throw error;
@@ -156,53 +194,8 @@ export const ProductService = {
    * UPDATE PRODUCT
    * API: PUT /api/admin/products?id=xxx
    */
-  update: async (
-    id: string,
-    productData: Partial<Product>
-  ): Promise<Product | null> => {
+  update: async (id: string, updateData: Partial<Product>): Promise<Product | null> => {
     try {
-      // Convert camelCase to snake_case for Supabase
-      const updateData: any = {};
-
-      if (productData.name !== undefined) updateData.name = productData.name;
-      if (productData.slug !== undefined) updateData.slug = productData.slug;
-      if (productData.sku !== undefined) updateData.sku = productData.sku;
-      if (productData.description !== undefined)
-        updateData.description = productData.description;
-      if (productData.price !== undefined) updateData.price = productData.price;
-      if (productData.compareAtPrice !== undefined)
-        updateData.compare_at_price = productData.compareAtPrice;
-      if (productData.category !== undefined)
-        updateData.category = productData.category;
-      if (productData.images !== undefined)
-        updateData.images = productData.images;
-      if (productData.sizes !== undefined) updateData.sizes = productData.sizes;
-      if (productData.colors !== undefined)
-        updateData.colors = productData.colors;
-      if (productData.stock !== undefined) updateData.stock = productData.stock;
-      if (productData.inStock !== undefined)
-        updateData.in_stock = productData.inStock;
-      if (productData.material !== undefined)
-        updateData.material = productData.material;
-      if (productData.care !== undefined) updateData.care = productData.care;
-      if (productData.features !== undefined)
-        updateData.features = productData.features;
-      if (productData.isNew !== undefined)
-        updateData.is_new = productData.isNew;
-      if (productData.isBestSeller !== undefined)
-        updateData.is_best_seller = productData.isBestSeller;
-      if (productData.isOnSale !== undefined)
-        updateData.is_on_sale = productData.isOnSale;
-      if (productData.status !== undefined)
-        updateData.status = productData.status;
-      if (productData.seoTitle !== undefined)
-        updateData.seo_title = productData.seoTitle;
-      if (productData.seoDescription !== undefined)
-        updateData.seo_description = productData.seoDescription;
-      if (productData.tags !== undefined) updateData.tags = productData.tags;
-      if (productData.collection !== undefined)
-        updateData.collection = productData.collection;
-
       const response = await fetch(`/api/admin/products?id=${id}`, {
         method: 'PUT',
         headers: {
@@ -217,7 +210,9 @@ export const ProductService = {
       }
 
       const data = await response.json();
-      return data.product;
+
+      // ✅ Parse colors
+      return parseProductColors(data.product);
     } catch (error) {
       console.error('Error updating product:', error);
       return null;
@@ -320,7 +315,11 @@ export const ProductService = {
 
         if (filters.colors && filters.colors.length > 0) {
           filtered = filtered.filter((p) =>
-            p.colors?.some((color) => filters.colors!.includes(color.name))
+            p.colors?.some((color) => {
+              // Handle both string and object format
+              const colorName = typeof color === 'string' ? color : color.name;
+              return filters.colors!.includes(colorName);
+            })
           );
         }
 

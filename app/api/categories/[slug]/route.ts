@@ -83,12 +83,18 @@ export async function GET(
     // Include products if requested
     if (includeProducts) {
       console.log('📦 [API] Fetching products for category:', slug);
-      const products = await ProductService.getAll({
-        category: category.id,
-        limit,
-        status: 'published',
-      });
+
+      // ✅ FIX: Use getByCategory instead of getAll with params
+      let allProducts = await ProductService.getByCategory(category.slug);
+
+      // Filter only published products
+      allProducts = allProducts.filter(p => p.status === 'published');
+
+      // Apply limit
+      const products = allProducts.slice(0, limit);
+
       response.products = products;
+      console.log(`✅ [API] Found ${products.length} products in category`);
     }
 
     console.log('✅ [API] Category found:', category.name);
