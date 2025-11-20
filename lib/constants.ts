@@ -2,49 +2,49 @@
 export const BRAND_NAME = "NOWIHT";
 export const BRAND_TAGLINE = "Premium Organic Women's Fashion";
 
-// Categories
+// ✅ FIXED: Correct image paths with athleisure/ folder
 export const CATEGORIES = [
   {
     slug: "polo-shirts",
     name: "Polo Shirts",
     description: "Classic polo shirts with a modern athletic twist. Perfect for any occasion with premium organic cotton.",
-    image: "/images/categories/polo-1.jpg",
+    image: "/images/categories/athleisure/polo-1.jpg", // ✅ FIXED
   },
   {
     slug: "hoodies",
     name: "Hoodies",
     description: "Stay warm and stylish with our luxury hoodies. Perfect for workouts and everyday wear.",
-    image: "/images/categories/hoodie-1.jpg",
+    image: "/images/categories/athleisure/hoodie-1.jpg", // ✅ FIXED
   },
   {
     slug: "sweatshirts",
     name: "Sweatshirts",
     description: "Premium sweatshirts for active lifestyles. Comfortable, breathable, and effortlessly stylish.",
-    image: "/images/categories/sweat-1.jpg",
+    image: "/images/categories/athleisure/sweat-1.jpg", // ✅ FIXED
   },
   {
     slug: "t-shirts",
     name: "T-Shirts",
     description: "Discover our collection of premium athletic t-shirts. Designed for performance and style.",
-    image: "/images/categories/tee-1.jpg",
+    image: "/images/categories/athleisure/tee-1.jpg", // ✅ FIXED
   },
   {
     slug: "dresses",
     name: "Dresses",
     description: "Elegant athletic dresses that transition from studio to street with ease.",
-    image: "/images/categories/dress-1.jpg",
+    image: "/images/categories/athleisure/dress-1.jpg", // ✅ FIXED
   },
   {
     slug: "pajama-sets",
     name: "Pajama Sets",
     description: "Luxurious satin and organic cotton pajama sets for ultimate comfort and relaxation.",
-    image: "/images/categories/pajama-1.jpg",
+    image: "/images/categories/athleisure/pajama-1.jpg", // ✅ FIXED
   },
   {
     slug: "tracksuits",
     name: "Tracksuits",
     description: "Comfortable organic tracksuits that blend style with functionality for any activity.",
-    image: "/images/categories/track-1.jpg",
+    image: "/images/categories/athleisure/track-1.jpg", // ✅ FIXED
   },
 ] as const;
 

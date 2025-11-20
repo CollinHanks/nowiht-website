@@ -11,7 +11,7 @@ import QuickViewModal from "@/components/modals/QuickViewModal";
 import WishlistHeart from "@/components/wishlist/WishlistHeart";
 import HomepageSearchBar from "@/components/search/HomepageSearchBar";
 import SearchModal from "@/components/search/SearchModal";
-import { CATEGORIES } from "@/lib/constants";
+import { CategoryService, type Category } from "@/lib/services/CategoryService";
 import { useQuickView } from "@/hooks/useQuickView";
 import { useCartStore } from "@/store/cartStore";
 import { cn, formatPrice } from "@/lib/utils";
@@ -351,6 +351,7 @@ export default function HomePage() {
   // ✅ NEW: Products state
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   // Pull to Refresh states
   const [pullStartY, setPullStartY] = useState(0);
@@ -414,8 +415,8 @@ export default function HomePage() {
   }, [products]);
 
   const featuredCollections = useMemo(() =>
-    CATEGORIES.slice(0, 3),
-    []
+    categories.slice(0, 3),
+    [categories]
   );
 
   // ✅ Fetch products from API
@@ -443,7 +444,22 @@ export default function HomePage() {
 
     fetchProducts();
   }, []);
+  // ✅ Fetch categories from API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        console.log('🔍 Fetching categories...');
+        const data = await CategoryService.getAll();
+        console.log('✅ Categories fetched:', data.length, data);
+        setCategories(data);
+      } catch (error) {
+        console.error('❌ Error fetching categories:', error);
+        setCategories([]);
+      }
+    };
 
+    fetchCategories();
+  }, []);
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -875,7 +891,7 @@ export default function HomePage() {
                   className="group relative aspect-[3/4] overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300"
                 >
                   <Image
-                    src={collection.image}
+                    src={collection.image || '/placeholder.jpg'}
                     alt={collection.name}
                     fill
                     className="object-cover"
