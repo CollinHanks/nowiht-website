@@ -1,6 +1,6 @@
 // next.config.js
 // NOWIHT E-Commerce - Production Configuration
-// 🔥 FIXED: Next.js 16 - Removed deprecated options
+// 🔥 FIXED: Removed /shop → /products redirect (causing infinite loop)
 
 const withPWA = require('next-pwa')({
   dest: 'public',
@@ -287,14 +287,13 @@ const nextConfig = {
     ];
   },
 
+  // 🔥 FIXED: Removed /shop → /products redirect (was causing infinite loop)
+  // Route structure is correct:
+  // - /shop → All products (app/shop/page.tsx)
+  // - /shop/[category] → Category page (app/shop/[category]/page.tsx)
+  // - /product/[slug] → Product detail (app/product/[slug]/page.tsx)
   async redirects() {
-    return [
-      {
-        source: '/shop',
-        destination: '/products',
-        permanent: true,
-      },
-    ];
+    return [];
   },
 
   async rewrites() {
