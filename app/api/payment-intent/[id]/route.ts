@@ -1,14 +1,15 @@
 // app/api/payment-intent/[id]/route.ts
-// ✅ NEW: Retrieve payment intent to get order number
+// ✅ FIXED: Next.js 15 async params
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const paymentIntentId = params.id;
+    // ✅ Await params (Next.js 15 requirement)
+    const { id: paymentIntentId } = await params;
 
     if (!paymentIntentId) {
       return NextResponse.json(
