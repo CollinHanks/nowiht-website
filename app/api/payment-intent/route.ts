@@ -1,5 +1,5 @@
 // app/api/payment-intent/route.ts
-// ✅ FIXED: Order number metadata'ya eklendi
+// ✅ FINAL FIX: Order number + customer bilgileri metadata'ya eklendi
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
 
@@ -18,13 +18,17 @@ export async function POST(request: NextRequest) {
     // ✅ Generate order number ONCE
     const orderNumber = `NOW-${Date.now().toString().slice(-8)}`;
 
-    // Create payment intent with metadata INCLUDING order number
+    // Create payment intent with COMPLETE metadata
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
       currency,
       metadata: {
-        orderNumber, // ✅ ADDED
-        ...metadata,
+        orderNumber, // ✅ Order number
+        customerName: metadata?.customerName || 'Guest Customer', // ✅ Customer name
+        customerEmail: metadata?.customerEmail || '', // ✅ Customer email
+        items: metadata?.items || '', // ✅ Items
+        source: metadata?.source || 'nowiht-checkout', // ✅ Source
+        itemCount: metadata?.itemCount || '0', // ✅ Item count
       },
       automatic_payment_methods: {
         enabled: true,
