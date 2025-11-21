@@ -1,7 +1,7 @@
 // app/checkout/page.tsx
 // ═══════════════════════════════════════════════════════════════
 // 🛒 NOWIHT - CHECKOUT WITH STRIPE PAYMENT ELEMENT
-// Luxury design + Secure Stripe integration
+// ✅ FIXED: Processing state + Simplified payment flow
 // ═══════════════════════════════════════════════════════════════
 
 'use client';
@@ -20,7 +20,7 @@ import Image from 'next/image';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-type CheckoutStep = 'shipping' | 'payment' | 'review';
+type CheckoutStep = 'shipping' | 'payment';
 
 // ═══════════════════════════════════════════════════════════════
 // 🌍 COUNTRY LIST (150+ countries with search)
@@ -60,19 +60,20 @@ const COUNTRIES = [
 
 // ═══════════════════════════════════════════════════════════════
 // 💳 STRIPE PAYMENT WRAPPER
+// ✅ FIXED: Simplified flow - Success goes directly to success page
 // ═══════════════════════════════════════════════════════════════
 function StripePaymentForm({
   onSuccess,
   onError,
   isProcessing,
   setIsProcessing,
-  total,
+  paymentIntentId,
 }: {
-  onSuccess: () => void;
+  onSuccess: (paymentIntentId: string) => void;
   onError: (error: string) => void;
   isProcessing: boolean;
   setIsProcessing: (processing: boolean) => void;
-  total: number;
+  paymentIntentId: string | null;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -98,7 +99,12 @@ function StripePaymentForm({
         onError(error.message || 'Payment failed');
         setIsProcessing(false);
       } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-        onSuccess();
+        // ✅ FIXED: Payment successful - pass intent ID to parent
+        onSuccess(paymentIntent.id);
+        // Note: isProcessing stays true until redirect completes
+      } else {
+        onError('Payment could not be processed. Please try again.');
+        setIsProcessing(false);
       }
     } catch (err) {
       console.error('Payment error:', err);
@@ -125,7 +131,7 @@ function StripePaymentForm({
         />
       </div>
 
-      {/* Continue Button */}
+      {/* Pay Now Button */}
       <button
         type="button"
         onClick={handlePayment}
@@ -139,7 +145,7 @@ function StripePaymentForm({
           </>
         ) : (
           <>
-            <span>CONTINUE TO REVIEW</span>
+            <span>PAY NOW</span>
             <CreditCard className="w-5 h-5" />
           </>
         )}
@@ -156,6 +162,7 @@ function StripePaymentForm({
 
 // ═══════════════════════════════════════════════════════════════
 // 🎯 MAIN CHECKOUT COMPONENT
+// ✅ FIXED: Simplified flow (Shipping → Payment → Success)
 // ═══════════════════════════════════════════════════════════════
 export default function CheckoutPage() {
   const router = useRouter();
@@ -212,10 +219,12 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
-    if (mounted && items.length === 0) {
+    // Only redirect to cart if on shipping step and cart is empty
+    // Don't redirect during payment processing or after clearCart() is called
+    if (mounted && items.length === 0 && currentStep === 'shipping') {
       router.push('/cart');
     }
-  }, [mounted, items.length, router]);
+  }, [mounted, items.length, currentStep, router]);
 
   const handleApplyCoupon = () => {
     if (couponCode.toLowerCase() === 'nowiht10') {
@@ -240,7 +249,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: total,
+          amount: total, // ✅ Already includes subtotal + shipping + tax
           customerEmail: data.email,
           customerName: `${data.firstName} ${data.lastName}`,
           items: items.map((item) => ({
@@ -270,24 +279,21 @@ export default function CheckoutPage() {
 
   // ═══════════════════════════════════════════════════════════════
   // 💳 STEP 2: PAYMENT SUCCESS
+  // ✅ FIXED: Redirect to success page immediately after payment
   // ═══════════════════════════════════════════════════════════════
-  const handlePaymentSuccess = () => {
-    console.log('✅ Payment succeeded, moving to review');
-    setCurrentStep('review');
+  const handlePaymentSuccess = (confirmedPaymentIntentId: string) => {
+    console.log('✅ Payment succeeded:', confirmedPaymentIntentId);
+
+    // Clear cart
+    clearCart();
+
+    // Redirect to success page
+    router.push(`/checkout/success?payment_intent=${confirmedPaymentIntentId}`);
   };
 
   const handlePaymentError = (errorMessage: string) => {
     setError(errorMessage);
     setIsProcessing(false);
-  };
-
-  // ═══════════════════════════════════════════════════════════════
-  // 🚀 STEP 3: PLACE ORDER (Final Confirmation)
-  // ═══════════════════════════════════════════════════════════════
-  const handlePlaceOrder = () => {
-    // Clear cart and redirect to success
-    clearCart();
-    router.push(`/checkout/success?payment_intent=${paymentIntentId}`);
   };
 
   // Filter countries for search
@@ -305,16 +311,15 @@ export default function CheckoutPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-light tracking-wide mb-2">CHECKOUT</h1>
-          <p className="text-sm text-gray-600">Complete your order in 3 simple steps</p>
+          <p className="text-sm text-gray-600">Complete your order in 2 simple steps</p>
         </div>
 
         {/* Progress Indicator */}
         <div className="mb-12">
-          <div className="flex items-center justify-between max-w-2xl">
+          <div className="flex items-center justify-between max-w-xl">
             {[
               { step: 'shipping', label: 'Shipping', icon: Truck },
               { step: 'payment', label: 'Payment', icon: CreditCard },
-              { step: 'review', label: 'Review', icon: Check },
             ].map(({ step, label, icon: Icon }, index) => (
               <div key={step} className="flex items-center flex-1">
                 <div className="flex flex-col items-center flex-1">
@@ -323,7 +328,7 @@ export default function CheckoutPage() {
                       'w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all',
                       currentStep === step
                         ? 'bg-black text-white'
-                        : ['shipping', 'payment'].indexOf(currentStep) > index
+                        : index === 0 && currentStep === 'payment'
                           ? 'bg-green-600 text-white'
                           : 'bg-gray-200 text-gray-500'
                     )}
@@ -339,11 +344,11 @@ export default function CheckoutPage() {
                     {label}
                   </span>
                 </div>
-                {index < 2 && (
+                {index < 1 && (
                   <div
                     className={cn(
                       'h-[2px] flex-1 mx-2',
-                      ['shipping', 'payment'].indexOf(currentStep) > index ? 'bg-green-600' : 'bg-gray-200'
+                      currentStep === 'payment' ? 'bg-green-600' : 'bg-gray-200'
                     )}
                   />
                 )}
@@ -375,9 +380,7 @@ export default function CheckoutPage() {
                   <h3 className="font-semibold text-lg mb-6 tracking-wide">CONTACT INFORMATION</h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                       <input
                         type="email"
                         {...registerShipping('email')}
@@ -395,7 +398,7 @@ export default function CheckoutPage() {
                 <div className="bg-white border border-gray-200 p-6">
                   <h3 className="font-semibold text-lg mb-6 tracking-wide">SHIPPING ADDRESS</h3>
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           First Name
@@ -451,7 +454,7 @@ export default function CheckoutPage() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
                         <input
@@ -628,7 +631,7 @@ export default function CheckoutPage() {
                       onError={handlePaymentError}
                       isProcessing={isProcessing}
                       setIsProcessing={setIsProcessing}
-                      total={total}
+                      paymentIntentId={paymentIntentId}
                     />
                   </Elements>
                 </div>
@@ -636,96 +639,11 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => setCurrentStep('shipping')}
-                  className="w-full py-3 border-2 border-black text-black font-medium tracking-wider hover:bg-black hover:text-white transition-all"
+                  disabled={isProcessing}
+                  className="w-full py-3 border-2 border-black text-black font-medium tracking-wider hover:bg-black hover:text-white transition-all disabled:opacity-50"
                 >
                   BACK TO SHIPPING
                 </button>
-              </div>
-            )}
-
-            {/* STEP 3: REVIEW */}
-            {currentStep === 'review' && (
-              <div className="space-y-6">
-                {/* Shipping Address Review */}
-                <div className="bg-white border border-gray-200 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-lg tracking-wide">SHIPPING ADDRESS</h3>
-                    <button
-                      onClick={() => setCurrentStep('shipping')}
-                      className="text-sm text-gray-600 hover:text-black underline underline-offset-4"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                  <div className="text-sm text-gray-700 space-y-1">
-                    <p className="font-medium">
-                      {getShippingValues('firstName')} {getShippingValues('lastName')}
-                    </p>
-                    <p>{getShippingValues('address')}</p>
-                    {getShippingValues('apartment') && <p>{getShippingValues('apartment')}</p>}
-                    <p>
-                      {getShippingValues('city')}, {getShippingValues('state')}{' '}
-                      {getShippingValues('zipCode')}
-                    </p>
-                    <p>{getShippingValues('country')}</p>
-                    <p className="pt-2">{getShippingValues('phone')}</p>
-                    <p>{getShippingValues('email')}</p>
-                  </div>
-                </div>
-
-                {/* Shipping Method Review */}
-                <div className="bg-white border border-gray-200 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-lg tracking-wide">SHIPPING METHOD</h3>
-                    <button
-                      onClick={() => setCurrentStep('shipping')}
-                      className="text-sm text-gray-600 hover:text-black underline underline-offset-4"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                  <p className="text-sm text-gray-700">
-                    {shippingMethod === 'standard'
-                      ? 'Standard Shipping (5-7 business days)'
-                      : 'Express Shipping (2-3 business days)'}
-                  </p>
-                </div>
-
-                {/* Payment Method Review */}
-                <div className="bg-white border border-gray-200 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-lg tracking-wide">PAYMENT METHOD</h3>
-                    <button
-                      onClick={() => setCurrentStep('payment')}
-                      className="text-sm text-gray-600 hover:text-black underline underline-offset-4"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-700">
-                    <Lock className="w-4 h-4" />
-                    <span>Secure payment via Stripe</span>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep('payment')}
-                    className="flex-1 py-4 border-2 border-black text-black font-medium tracking-wider hover:bg-black hover:text-white transition-all"
-                  >
-                    BACK
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handlePlaceOrder}
-                    disabled={isProcessing}
-                    className="flex-1 py-4 bg-black text-white font-medium tracking-wider hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isProcessing ? 'PROCESSING...' : 'PLACE ORDER'}
-                  </button>
-                </div>
               </div>
             )}
           </div>

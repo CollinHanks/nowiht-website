@@ -1,7 +1,7 @@
 // app/api/payment-intent/route.ts
+// ✅ FIXED: Removed double shipping calculation
 import { NextRequest, NextResponse } from 'next/server';
 import { createPaymentIntent } from '@/lib/stripe/paymentIntent';
-import { calculateOrderTotal } from '@/lib/stripe/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,12 +24,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate total with shipping
-    const total = calculateOrderTotal(amount);
-
-    // Create PaymentIntent
+    // ✅ FIXED: Use amount directly (frontend already calculated total)
+    // No need to recalculate - prevents double shipping charge
     const paymentIntent = await createPaymentIntent({
-      amount: total,
+      amount, // ✅ Direct use - already includes subtotal + shipping + tax
       customerEmail,
       customerName,
       metadata: {

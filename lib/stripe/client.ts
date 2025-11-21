@@ -1,4 +1,5 @@
 // lib/stripe/client.ts
+// ✅ FIXED: Stripe API version + helper functions
 import Stripe from 'stripe';
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -6,7 +7,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2025-11-17.clover', // ✅ FIX: Updated to latest version
+  apiVersion: '2025-11-17.clover', // ✅ Current stable version (Nov 2025)
   typescript: true,
   appInfo: {
     name: 'NOWIHT E-Commerce',
@@ -31,6 +32,8 @@ export const formatStripeAmount = (amount: number): string => {
   return `${CURRENCY_SYMBOL}${(amount / 100).toFixed(2)}`;
 };
 
+// ⚠️ NOTE: This function is NOT used in payment-intent API anymore
+// Frontend calculates total and sends it directly
 export const calculateOrderTotal = (
   subtotal: number,
   shippingCost: number = SHIPPING_COST
