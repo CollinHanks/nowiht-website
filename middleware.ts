@@ -1,6 +1,6 @@
 // middleware.ts
 // NOWIHT Admin Login - FIXED Middleware Configuration
-// NextAuth v5 + Next.js 16 + React 19 + Products Redirect
+// NextAuth v5 + Next.js 16 + React 19 - PRODUCTS REDIRECT REMOVED
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
@@ -76,15 +76,13 @@ export default async function middleware(request: NextRequest) {
   }
 
   // ============================================
-  // 🔥 CRITICAL: PRODUCT ROUTES REDIRECT
-  // Frontend uses /products but actual route is /product
+  // 🔥 PRODUCTS REDIRECT REMOVED
+  // Our route structure:
+  // - /shop → All products
+  // - /shop/[category] → Category page
+  // - /product/[slug] → Product detail
+  // No need for /products redirect!
   // ============================================
-  if (pathname.startsWith('/products') && !pathname.startsWith('/admin/products')) {
-    const url = request.nextUrl.clone();
-    url.pathname = pathname.replace('/products', '/product');
-    console.log(`🔄 [MIDDLEWARE] Redirecting: ${pathname} → ${url.pathname}`);
-    return NextResponse.redirect(url, 301); // Permanent redirect
-  }
 
   // ============================================
   // TEST ROUTE PROTECTION
