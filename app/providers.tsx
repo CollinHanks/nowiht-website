@@ -2,7 +2,7 @@
 
 // app/providers.tsx
 // NOWIHT E-Commerce - Client-Side Providers
-// 🔥 CRITICAL: Includes SessionProvider for NextAuth v5
+// 🔥 FIXED: Named export + SessionProvider for NextAuth v5
 
 import { SessionProvider } from 'next-auth/react';
 import { ReactNode } from 'react';
@@ -11,7 +11,7 @@ interface ProvidersProps {
   children: ReactNode;
 }
 
-export default function Providers({ children }: ProvidersProps) {
+export function Providers({ children }: ProvidersProps) {
   return (
     <SessionProvider
       // 🔥 CRITICAL: Base path for NextAuth v5

@@ -1,6 +1,6 @@
 // app/layout.tsx
 // NOWIHT E-Commerce - Root Layout
-// 🔥 FIXED: Added SessionProvider for NextAuth v5
+// 🔥 FIXED: All client components wrapped in SessionProvider
 
 import type { Metadata } from "next";
 import "./globals.css";
@@ -10,7 +10,7 @@ import BackToTop from "@/components/BackToTop";
 import BottomNav from "@/components/navigation/BottomNav";
 import CookieConsent from "@/components/CookieConsent";
 import ToastContainer from "@/components/ui/ToastContainer";
-import Providers from "./providers";
+import { Providers } from "./providers";
 
 // ============================================
 // METADATA CONFIGURATION (SEO)
@@ -278,21 +278,22 @@ export default function RootLayout({
 
       <body className="antialiased font-mono bg-white text-black">
         {/* ============================================ */}
-        {/* PROVIDERS WRAPPER (includes SessionProvider) */}
+        {/* 🔥 CRITICAL FIX: ALL CLIENT COMPONENTS INSIDE PROVIDERS */}
+        {/* This ensures SessionProvider context is available to all components */}
         {/* ============================================ */}
         <Providers>
-          {/* Main content */}
+          {/* Main content (pages) */}
           {children}
-        </Providers>
 
-        {/* ============================================ */}
-        {/* GLOBAL UI COMPONENTS */}
-        {/* ============================================ */}
-        <CartDrawer />
-        <BackToTop />
-        <BottomNav />
-        <CookieConsent />
-        <ToastContainer />
+          {/* ============================================ */}
+          {/* GLOBAL UI COMPONENTS (now inside SessionProvider) */}
+          {/* ============================================ */}
+          <CartDrawer />
+          <BackToTop />
+          <BottomNav />
+          <CookieConsent />
+          <ToastContainer />
+        </Providers>
 
         {/* ============================================ */}
         {/* ANALYTICS & TRACKING (Production only) */}
