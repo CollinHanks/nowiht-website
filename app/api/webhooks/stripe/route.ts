@@ -1,4 +1,5 @@
 // app/api/webhooks/stripe/route.ts
+// ✅ FIXED: Added order_number, fixed status constraint
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { stripe } from '@/lib/stripe/client';
@@ -63,16 +64,20 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   try {
     console.log('Payment succeeded:', paymentIntent.id);
 
-    const { customerName, customerEmail, items } = paymentIntent.metadata;
+    const { customerName, customerEmail } = paymentIntent.metadata;
+
+    // ✅ FIXED: Generate order_number
+    const orderNumber = `NOW-${Date.now().toString().slice(-8)}`;
 
     // Create order in Supabase
     const orderData = {
+      order_number: orderNumber, // ✅ ADDED
       payment_intent_id: paymentIntent.id,
       customer_email: customerEmail,
       customer_name: customerName,
       amount: paymentIntent.amount,
       currency: paymentIntent.currency,
-      status: 'paid',
+      status: 'pending', // ✅ FIXED: 'paid' → 'pending'
       payment_status: 'succeeded',
       metadata: paymentIntent.metadata,
       created_at: new Date().toISOString(),
@@ -89,7 +94,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       throw orderError;
     }
 
-    console.log('Order created:', order.id);
+    console.log('✅ Order created:', order.id, '| Order Number:', orderNumber);
 
     // Send confirmation email
     try {
@@ -101,7 +106,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
           <div style="font-family: 'IBM Plex Mono', monospace; max-width: 600px; margin: 0 auto;">
             <h1 style="font-weight: 300; font-size: 24px; letter-spacing: 0.1em;">ORDER CONFIRMED</h1>
             <p>Thank you for your purchase, ${customerName}.</p>
-            <p>Order ID: <strong>${order.id}</strong></p>
+            <p>Order Number: <strong>${orderNumber}</strong></p>
             <p>Amount: <strong>$${(paymentIntent.amount / 100).toFixed(2)}</strong></p>
             <p>We'll send you a shipping confirmation when your order ships.</p>
             <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0;" />
@@ -110,13 +115,13 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
         `,
       });
 
-      console.log('Confirmation email sent to:', customerEmail);
+      console.log('✅ Confirmation email sent to:', customerEmail);
     } catch (emailError) {
-      console.error('Error sending email:', emailError);
+      console.error('❌ Error sending email:', emailError);
       // Don't throw - email failure shouldn't fail the webhook
     }
   } catch (error) {
-    console.error('Error handling payment success:', error);
+    console.error('❌ Error handling payment success:', error);
     throw error;
   }
 }
