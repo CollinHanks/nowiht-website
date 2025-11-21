@@ -271,7 +271,7 @@ const BestSellerCard = memo(({
   return (
     <div className="group relative">
       <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 mb-2 md:mb-3">
-        <Link href={`/products/${product.slug}`}>
+        <Link href={`/product/${product.slug}`}>
           <Image
             src={firstImage}
             alt={product.name}
@@ -316,7 +316,7 @@ const BestSellerCard = memo(({
         </div>
       </div>
 
-      <Link href={`/products/${product.slug}`} className="block">
+      <Link href={`/product/${product.slug}`} className="block">
         <h3 className="text-xs md:text-sm font-medium mb-0.5 md:mb-1 line-clamp-1 group-hover:text-red-600 transition-colors">
           {product.name}
         </h3>
