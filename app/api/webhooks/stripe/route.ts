@@ -1,5 +1,5 @@
 // app/api/webhooks/stripe/route.ts
-// ✅ FIXED: Added order_number, fixed status constraint
+// ✅ FIXED: Order number metadata'dan alınıyor
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { stripe } from '@/lib/stripe/client';
@@ -64,20 +64,21 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   try {
     console.log('Payment succeeded:', paymentIntent.id);
 
-    const { customerName, customerEmail } = paymentIntent.metadata;
+    const { orderNumber, customerName, customerEmail } = paymentIntent.metadata;
 
-    // ✅ FIXED: Generate order_number
-    const orderNumber = `NOW-${Date.now().toString().slice(-8)}`;
+    // ✅ FIXED: Use order number from metadata (generated in payment-intent route)
+    // If somehow missing, generate as fallback
+    const finalOrderNumber = orderNumber || `NOW-${Date.now().toString().slice(-8)}`;
 
     // Create order in Supabase
     const orderData = {
-      order_number: orderNumber, // ✅ ADDED
+      order_number: finalOrderNumber, // ✅ From metadata
       payment_intent_id: paymentIntent.id,
       customer_email: customerEmail,
       customer_name: customerName,
       amount: paymentIntent.amount,
       currency: paymentIntent.currency,
-      status: 'pending', // ✅ FIXED: 'paid' → 'pending'
+      status: 'pending',
       payment_status: 'succeeded',
       metadata: paymentIntent.metadata,
       created_at: new Date().toISOString(),
@@ -94,7 +95,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       throw orderError;
     }
 
-    console.log('✅ Order created:', order.id, '| Order Number:', orderNumber);
+    console.log('✅ Order created:', order.id, '| Order Number:', finalOrderNumber);
 
     // Send confirmation email
     try {
@@ -106,7 +107,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
           <div style="font-family: 'IBM Plex Mono', monospace; max-width: 600px; margin: 0 auto;">
             <h1 style="font-weight: 300; font-size: 24px; letter-spacing: 0.1em;">ORDER CONFIRMED</h1>
             <p>Thank you for your purchase, ${customerName}.</p>
-            <p>Order Number: <strong>${orderNumber}</strong></p>
+            <p>Order Number: <strong>${finalOrderNumber}</strong></p>
             <p>Amount: <strong>$${(paymentIntent.amount / 100).toFixed(2)}</strong></p>
             <p>We'll send you a shipping confirmation when your order ships.</p>
             <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0;" />
@@ -130,7 +131,6 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   try {
     console.log('Payment failed:', paymentIntent.id);
 
-    // Optionally: Create failed order record or send notification
     const { customerEmail, customerName } = paymentIntent.metadata;
 
     if (customerEmail) {
