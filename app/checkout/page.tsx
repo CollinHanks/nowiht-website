@@ -1,7 +1,8 @@
 // app/checkout/page.tsx
 // ═══════════════════════════════════════════════════════════════
 // 🛒 NOWIHT - CHECKOUT WITH STRIPE PAYMENT ELEMENT
-// ✅ FIXED: Processing state + Simplified payment flow
+// ✅ FIXED: Customer info in metadata + Processing state
+// 🔥 FIX v2: Customer email/name now sent in metadata to webhook
 // ═══════════════════════════════════════════════════════════════
 
 'use client';
@@ -163,6 +164,7 @@ function StripePaymentForm({
 // ═══════════════════════════════════════════════════════════════
 // 🎯 MAIN CHECKOUT COMPONENT
 // ✅ FIXED: Simplified flow (Shipping → Payment → Success)
+// 🔥 FIX v2: Customer info sent in metadata
 // ═══════════════════════════════════════════════════════════════
 export default function CheckoutPage() {
   const router = useRouter();
@@ -237,6 +239,7 @@ export default function CheckoutPage() {
 
   // ═══════════════════════════════════════════════════════════════
   // 📦 STEP 1: SHIPPING SUBMIT
+  // 🔥 FIX v2: Customer info sent in metadata object
   // ═══════════════════════════════════════════════════════════════
   const onShippingSubmit = async (data: ShippingFormData) => {
     console.log('✅ Shipping validated:', data);
@@ -244,20 +247,39 @@ export default function CheckoutPage() {
     setIsProcessing(true);
 
     try {
-      // Create PaymentIntent
+      // 🔥 NEW: Build metadata object with customer info
+      const metadata = {
+        customerEmail: data.email,
+        customerName: `${data.firstName} ${data.lastName}`,
+        customerPhone: data.phone,
+        shippingAddress: `${data.address}, ${data.city}, ${data.state} ${data.zipCode}, ${data.country}`,
+        items: JSON.stringify(
+          items.map((item) => ({
+            id: item.product.id,
+            name: item.product.name,
+            quantity: item.quantity,
+            price: item.product.price,
+            size: item.size,
+            color: item.color,
+          }))
+        ),
+        itemCount: items.length.toString(),
+        subtotal: subtotal.toString(),
+        shippingCost: shippingCost.toString(),
+        tax: tax.toString(),
+        total: total.toString(),
+        shippingMethod: shippingMethod,
+      };
+
+      console.log('🔥 Sending metadata:', metadata);
+
+      // Create PaymentIntent with metadata
       const response = await fetch('/api/payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: total, // ✅ Already includes subtotal + shipping + tax
-          customerEmail: data.email,
-          customerName: `${data.firstName} ${data.lastName}`,
-          items: items.map((item) => ({
-            id: item.product.id,
-            name: item.product.name,
-            quantity: item.quantity,
-            price: item.product.price,
-          })),
+          metadata, // 🔥 NEW: Send all customer info in metadata
         }),
       });
 
@@ -266,6 +288,8 @@ export default function CheckoutPage() {
       }
 
       const paymentData = await response.json();
+      console.log('✅ Payment intent created:', paymentData);
+
       setClientSecret(paymentData.clientSecret);
       setPaymentIntentId(paymentData.paymentIntentId);
       setCurrentStep('payment');
@@ -325,20 +349,24 @@ export default function CheckoutPage() {
                 <div className="flex flex-col items-center flex-1">
                   <div
                     className={cn(
-                      'w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all',
+                      'w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all',
                       currentStep === step
-                        ? 'bg-black text-white'
-                        : index === 0 && currentStep === 'payment'
-                          ? 'bg-green-600 text-white'
-                          : 'bg-gray-200 text-gray-500'
+                        ? 'border-black bg-black text-white'
+                        : index < ['shipping', 'payment'].indexOf(currentStep)
+                          ? 'border-black bg-black text-white'
+                          : 'border-gray-300 text-gray-400'
                     )}
                   >
-                    <Icon className="w-5 h-5" />
+                    {index < ['shipping', 'payment'].indexOf(currentStep) ? (
+                      <Check className="w-5 h-5" />
+                    ) : (
+                      <Icon className="w-5 h-5" />
+                    )}
                   </div>
                   <span
                     className={cn(
-                      'text-xs font-medium tracking-wider uppercase',
-                      currentStep === step ? 'text-black' : 'text-gray-500'
+                      'text-xs mt-2 font-medium tracking-wide',
+                      currentStep === step ? 'text-black' : 'text-gray-400'
                     )}
                   >
                     {label}
@@ -347,8 +375,10 @@ export default function CheckoutPage() {
                 {index < 1 && (
                   <div
                     className={cn(
-                      'h-[2px] flex-1 mx-2',
-                      currentStep === 'payment' ? 'bg-green-600' : 'bg-gray-200'
+                      'flex-1 h-0.5 mx-4 transition-all',
+                      index < ['shipping', 'payment'].indexOf(currentStep)
+                        ? 'bg-black'
+                        : 'bg-gray-300'
                     )}
                   />
                 )}
@@ -357,84 +387,79 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* Error Message */}
+        {/* Error Alert */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 p-4 flex items-start gap-3">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-red-800 font-medium">Payment Error</p>
-              <p className="text-sm text-red-700 mt-1">{error}</p>
+            <div className="flex-1">
+              <p className="text-sm text-red-800 font-medium">{error}</p>
             </div>
           </div>
         )}
 
-        {/* Main Content */}
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Forms */}
           <div className="lg:col-span-2">
-            {/* STEP 1: SHIPPING */}
+            {/* STEP 1: SHIPPING INFO */}
             {currentStep === 'shipping' && (
               <form onSubmit={handleSubmitShipping(onShippingSubmit)} className="space-y-6">
-                {/* Contact Information */}
                 <div className="bg-white border border-gray-200 p-6">
-                  <h3 className="font-semibold text-lg mb-6 tracking-wide">CONTACT INFORMATION</h3>
+                  <h3 className="font-semibold text-lg mb-6 tracking-wide">SHIPPING INFORMATION</h3>
+
                   <div className="space-y-4">
+                    {/* Email */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                      <label className="block text-sm font-medium mb-2">Email Address</label>
                       <input
                         type="email"
                         {...registerShipping('email')}
-                        className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none text-sm"
+                        className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
                         placeholder="your.email@example.com"
                       />
                       {shippingErrors.email && (
                         <p className="text-xs text-red-600 mt-1">{shippingErrors.email.message}</p>
                       )}
                     </div>
-                  </div>
-                </div>
 
-                {/* Shipping Address */}
-                <div className="bg-white border border-gray-200 p-6">
-                  <h3 className="font-semibold text-lg mb-6 tracking-wide">SHIPPING ADDRESS</h3>
-                  <div className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
+                    {/* Name */}
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          First Name
-                        </label>
+                        <label className="block text-sm font-medium mb-2">First Name</label>
                         <input
                           type="text"
                           {...registerShipping('firstName')}
-                          className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none text-sm"
+                          className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
                           placeholder="John"
                         />
                         {shippingErrors.firstName && (
-                          <p className="text-xs text-red-600 mt-1">{shippingErrors.firstName.message}</p>
+                          <p className="text-xs text-red-600 mt-1">
+                            {shippingErrors.firstName.message}
+                          </p>
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Last Name
-                        </label>
+                        <label className="block text-sm font-medium mb-2">Last Name</label>
                         <input
                           type="text"
                           {...registerShipping('lastName')}
-                          className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none text-sm"
+                          className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
                           placeholder="Doe"
                         />
                         {shippingErrors.lastName && (
-                          <p className="text-xs text-red-600 mt-1">{shippingErrors.lastName.message}</p>
+                          <p className="text-xs text-red-600 mt-1">
+                            {shippingErrors.lastName.message}
+                          </p>
                         )}
                       </div>
                     </div>
 
+                    {/* Address */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                      <label className="block text-sm font-medium mb-2">Address</label>
                       <input
                         type="text"
                         {...registerShipping('address')}
-                        className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none text-sm"
+                        className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
                         placeholder="123 Main Street"
                       />
                       {shippingErrors.address && (
@@ -442,25 +467,27 @@ export default function CheckoutPage() {
                       )}
                     </div>
 
+                    {/* Apartment */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium mb-2">
                         Apartment, suite, etc. (optional)
                       </label>
                       <input
                         type="text"
                         {...registerShipping('apartment')}
-                        className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none text-sm"
+                        className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
                         placeholder="Apt 4B"
                       />
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-4">
+                    {/* City, State, ZIP */}
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                        <label className="block text-sm font-medium mb-2">City</label>
                         <input
                           type="text"
                           {...registerShipping('city')}
-                          className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none text-sm"
+                          className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
                           placeholder="New York"
                         />
                         {shippingErrors.city && (
@@ -468,11 +495,11 @@ export default function CheckoutPage() {
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                        <label className="block text-sm font-medium mb-2">State/Province</label>
                         <input
                           type="text"
                           {...registerShipping('state')}
-                          className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none text-sm"
+                          className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
                           placeholder="NY"
                         />
                         {shippingErrors.state && (
@@ -480,23 +507,24 @@ export default function CheckoutPage() {
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          ZIP Code
-                        </label>
+                        <label className="block text-sm font-medium mb-2">ZIP/Postal Code</label>
                         <input
                           type="text"
                           {...registerShipping('zipCode')}
-                          className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none text-sm"
+                          className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
                           placeholder="10001"
                         />
                         {shippingErrors.zipCode && (
-                          <p className="text-xs text-red-600 mt-1">{shippingErrors.zipCode.message}</p>
+                          <p className="text-xs text-red-600 mt-1">
+                            {shippingErrors.zipCode.message}
+                          </p>
                         )}
                       </div>
                     </div>
 
+                    {/* Country with Search */}
                     <div className="relative">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                      <label className="block text-sm font-medium mb-2">Country</label>
                       <input
                         type="text"
                         value={countrySearch || selectedCountry}
@@ -505,11 +533,11 @@ export default function CheckoutPage() {
                           setShowCountryDropdown(true);
                         }}
                         onFocus={() => setShowCountryDropdown(true)}
-                        className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none text-sm"
+                        className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
                         placeholder="Search country..."
                       />
                       {showCountryDropdown && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 max-h-60 overflow-y-auto shadow-lg">
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 max-h-48 overflow-y-auto shadow-lg">
                           {filteredCountries.map((country) => (
                             <button
                               key={country}
@@ -519,7 +547,7 @@ export default function CheckoutPage() {
                                 setCountrySearch('');
                                 setShowCountryDropdown(false);
                               }}
-                              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+                              className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
                             >
                               {country}
                             </button>
@@ -531,13 +559,14 @@ export default function CheckoutPage() {
                       )}
                     </div>
 
+                    {/* Phone */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                      <label className="block text-sm font-medium mb-2">Phone Number</label>
                       <input
                         type="tel"
                         {...registerShipping('phone')}
-                        className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none text-sm"
-                        placeholder="+1 (555) 000-0000"
+                        className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
+                        placeholder="+1 (555) 123-4567"
                       />
                       {shippingErrors.phone && (
                         <p className="text-xs text-red-600 mt-1">{shippingErrors.phone.message}</p>
@@ -550,7 +579,7 @@ export default function CheckoutPage() {
                 <div className="bg-white border border-gray-200 p-6">
                   <h3 className="font-semibold text-lg mb-6 tracking-wide">SHIPPING METHOD</h3>
                   <div className="space-y-3">
-                    <label className="flex items-center justify-between p-4 border-2 border-gray-300 cursor-pointer hover:border-black transition-colors">
+                    <label className="flex items-center justify-between p-4 border-2 border-black cursor-pointer hover:bg-gray-50 transition-colors">
                       <div className="flex items-center gap-3">
                         <input
                           type="radio"
