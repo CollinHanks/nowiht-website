@@ -15,7 +15,8 @@ import SearchModal from "@/components/search/SearchModal";
 export default function Header() {
   const pathname = usePathname();
   const isHomepage = pathname === "/";
-  const { data: session, status } = useSession(); // NextAuth session
+  // ✅ SSR-SAFE: Optional chaining + default values to prevent destructuring errors
+  const { data: session = null, status = "loading" } = useSession() || {};
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -142,10 +143,10 @@ export default function Header() {
                     <div className="absolute right-0 top-8 w-56 bg-white border border-gray-200 shadow-lg rounded-lg overflow-hidden z-50">
                       <div className="p-4 border-b border-gray-100">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                          {session.user.name}
+                          {session.user?.name || "User"}
                         </p>
                         <p className="text-xs text-gray-500 truncate">
-                          {session.user.email}
+                          {session.user?.email || ""}
                         </p>
                       </div>
                       <div className="py-2">
@@ -364,7 +365,7 @@ export default function Header() {
               {session ? (
                 <>
                   <div className="px-3 py-2 text-xs text-gray-500 font-medium">
-                    {session.user.name}
+                    {session.user?.name || "User"}
                   </div>
                   <Link
                     href="/account"

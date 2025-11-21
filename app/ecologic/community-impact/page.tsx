@@ -1,5 +1,3 @@
-"use client"
-
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -152,43 +150,60 @@ export default function CommunityImpactPage() {
                     Education
                   </span>
                   <h3 className="text-2xl md:text-3xl font-light mb-6">
-                    Learning & Development
+                    Skills & Knowledge Transfer
                   </h3>
                   <p className="text-gray-600 leading-relaxed mb-6">
-                    Education is the cornerstone of lasting change. Our scholarship program has helped over 200 children of artisan families access quality education. We partner with local schools to provide supplies, uniforms, and tutoring support.
+                    We invest heavily in education, running technical training programs that teach modern sustainable fashion techniques while preserving traditional craftsmanship. Our workshops cover everything from organic fabric handling to circular design principles.
                   </p>
                   <p className="text-gray-600 leading-relaxed mb-6">
-                    For adult artisans, we offer vocational training beyond traditional crafts—including digital literacy, business management, and quality control certification. These skills empower our partners to grow professionally and explore new opportunities within and beyond the fashion industry.
+                    Beyond technical skills, we offer business literacy courses that help artisans understand pricing, negotiations, and entrepreneurship. Many of our graduates have gone on to start their own sustainable fashion micro-enterprises, multiplying our impact.
                   </p>
-                  <div className="bg-gray-50 p-6 border-l-4 border-green-600">
-                    <p className="text-sm text-gray-700 italic">
-                      "The skills training I received through NOWIHT changed my life. I went from basic sewing to becoming a quality control supervisor, and now I'm training others. My daughter is in university—something I never dreamed possible."
-                    </p>
-                    <p className="text-sm text-gray-900 font-medium mt-3">
-                      — Ayşe K., Master Artisan & Team Leader
-                    </p>
-                  </div>
+                  <ul className="space-y-3 text-gray-700">
+                    <li className="flex items-start gap-3">
+                      <span className="text-green-600 mt-1">✓</span>
+                      <span>200+ hours of annual training per artisan</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="text-green-600 mt-1">✓</span>
+                      <span>Scholarships for advanced certification programs</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="text-green-600 mt-1">✓</span>
+                      <span>Master artisan mentorship opportunities</span>
+                    </li>
+                  </ul>
                 </div>
               </div>
 
-              {/* Pillar 3: Community Development */}
+              {/* Pillar 3: Local Economic Development */}
               <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center">
                 <div className="order-2 md:order-1">
                   <span className="text-sm tracking-[0.3em] text-gray-500 uppercase block mb-4">
-                    Development
+                    Economic Growth
                   </span>
                   <h3 className="text-2xl md:text-3xl font-light mb-6">
-                    Sustainable Community Growth
+                    Building Thriving Communities
                   </h3>
                   <p className="text-gray-600 leading-relaxed mb-6">
-                    We invest 5% of our annual revenue back into the communities where we operate. This funding supports infrastructure improvements, clean water projects, renewable energy installations, and local healthcare facilities.
+                    Our commitment goes beyond individual workers to entire communities. We prioritize partnerships with rural and economically disadvantaged areas, bringing sustainable employment opportunities that help reverse urban migration and preserve cultural heritage.
                   </p>
                   <p className="text-gray-600 leading-relaxed mb-6">
-                    Our community centers serve as hubs for social connection, skills exchange, and mutual support. They host everything from traditional craft exhibitions to modern business workshops, creating spaces where heritage and innovation coexist.
+                    Every production facility we partner with becomes an anchor employer, creating ripple effects throughout the local economy. From restaurants to childcare services to transportation, our presence helps build diverse, resilient community ecosystems.
                   </p>
-                  <p className="text-gray-600 leading-relaxed">
-                    By the end of 2024, we've facilitated the establishment of three artisan cooperatives that now operate independently, giving workers collective bargaining power and direct market access. This model of empowerment—not dependence—is at the heart of our community philosophy.
-                  </p>
+                  <ul className="space-y-3 text-gray-700">
+                    <li className="flex items-start gap-3">
+                      <span className="text-green-600 mt-1">✓</span>
+                      <span>100% local hiring in production communities</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="text-green-600 mt-1">✓</span>
+                      <span>Infrastructure investment in partner regions</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="text-green-600 mt-1">✓</span>
+                      <span>Support for community development projects</span>
+                    </li>
+                  </ul>
                 </div>
                 <div className="order-1 md:order-2 aspect-[4/5] bg-gray-100 relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-br from-amber-900/20 to-orange-900/20"></div>
