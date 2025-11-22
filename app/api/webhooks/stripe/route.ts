@@ -1,7 +1,8 @@
 // app/api/webhooks/stripe/route.ts
 // ═══════════════════════════════════════════════════════════════
-// 🎯 NOWIHT - STRIPE WEBHOOK HANDLER (FIXED)
-// ✅ Proper metadata parsing and database mapping
+// 🎯 NOWIHT - STRIPE WEBHOOK HANDLER (FINAL FIXED)
+// ✅ Includes amount field
+// ✅ Complete metadata parsing
 // ✅ All fields correctly populated
 // ═══════════════════════════════════════════════════════════════
 
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 💳 PAYMENT SUCCESS HANDLER - FIXED VERSION
+// 💳 PAYMENT SUCCESS HANDLER
 // ═══════════════════════════════════════════════════════════════
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   try {
@@ -76,11 +77,11 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 
     const metadata = paymentIntent.metadata;
 
-    // ✅ Extract order number
+    // Extract order number
     const orderNumber = metadata.orderNumber || `NOW-${Date.now().toString().slice(-8)}`;
     console.log('📦 Order Number:', orderNumber);
 
-    // ✅ Parse cart items from JSON string
+    // Parse cart items from JSON string
     let cartItems: any[] = [];
     try {
       const cartItemsStr = metadata.cart_items || '[]';
@@ -91,7 +92,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       cartItems = [];
     }
 
-    // ✅ Parse ALL pricing details (in cents)
+    // Parse ALL pricing details (in cents)
     const subtotal = parseInt(metadata.subtotal_cents || '0');
     const shippingCost = parseInt(metadata.shipping_cost_cents || '0');
     const originalShipping = parseInt(metadata.original_shipping_cents || '0');
@@ -108,7 +109,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       total,
     });
 
-    // ✅ Parse coupon details
+    // Parse coupon details
     const couponCode = metadata.coupon_code || null;
     const couponType = metadata.coupon_type || null;
     const couponValue = metadata.coupon_value ? parseFloat(metadata.coupon_value) : null;
@@ -125,7 +126,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       });
     }
 
-    // ✅ Build shipping address object
+    // Build shipping address object
     const shippingAddress = {
       address: metadata.shipping_address || '',
       apartment: metadata.shipping_apartment || '',
@@ -148,13 +149,16 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       customer_name: metadata.customer_name || '',
       customer_phone: metadata.customer_phone || null,
 
+      // ✅ CRITICAL: amount field (same as total)
+      amount: total,
+
       // Pricing (ALL IN CENTS as INT8)
-      subtotal,                    // ✅ INT8 NOT NULL
-      shipping_cost: shippingCost, // ✅ INT8 NOT NULL
-      original_shipping_cost: originalShipping || null, // ✅ INT8 nullable
-      tax,                         // ✅ INT8 NOT NULL
-      discount,                    // ✅ INT8 NOT NULL
-      total,                       // ✅ INT8 NOT NULL
+      subtotal,
+      shipping_cost: shippingCost,
+      original_shipping_cost: originalShipping || null,
+      tax,
+      discount,
+      total,
       currency: paymentIntent.currency || 'usd',
 
       // Coupon information
@@ -165,12 +169,12 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       free_shipping_applied: freeShippingApplied,
 
       // Shipping
-      shipping_address: shippingAddress,        // ✅ JSONB NOT NULL
-      shipping_method: metadata.shipping_method || 'standard', // ✅ TEXT NOT NULL
+      shipping_address: shippingAddress,
+      shipping_method: metadata.shipping_method || 'standard',
 
       // Cart items
-      items: cartItems,            // ✅ JSONB NOT NULL
-      item_count: parseInt(metadata.item_count || '0'), // ✅ INT4 NOT NULL
+      items: cartItems,
+      item_count: parseInt(metadata.item_count || '0'),
 
       // Status
       status: 'pending',
@@ -189,13 +193,14 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     console.log('📊 Order data summary:', {
       orderNumber: orderData.order_number,
       email: orderData.customer_email,
+      amount: `$${(orderData.amount / 100).toFixed(2)}`,
       subtotal: `$${(orderData.subtotal / 100).toFixed(2)}`,
       total: `$${(orderData.total / 100).toFixed(2)}`,
       items: orderData.item_count,
       coupon: orderData.coupon_code || 'none',
     });
 
-    // ✅ Insert order into Supabase
+    // Insert order into Supabase
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert(orderData)
@@ -214,12 +219,11 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       items: order.item_count,
     });
 
-    // ✅ Update coupon usage count
+    // Update coupon usage count
     if (couponCode) {
       console.log('🎟️ Updating coupon usage count for:', couponCode);
 
       try {
-        // Get current coupon data
         const { data: coupon, error: fetchError } = await supabaseAdmin
           .from('coupons')
           .select('used_count')
@@ -229,7 +233,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
         if (fetchError) {
           console.error('⚠️ Error fetching coupon:', fetchError);
         } else if (coupon) {
-          // Increment used_count
           const newUsedCount = (coupon.used_count || 0) + 1;
 
           const { error: updateError } = await supabaseAdmin
@@ -248,11 +251,10 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
         }
       } catch (couponError) {
         console.error('⚠️ Coupon update error:', couponError);
-        // Don't throw - this shouldn't fail the order
       }
     }
 
-    // ✅ Send confirmation email
+    // Send confirmation email
     try {
       console.log('📧 Sending confirmation email to:', metadata.customer_email);
 
@@ -278,7 +280,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       console.log('✅ Confirmation email sent successfully');
     } catch (emailError) {
       console.error('❌ Error sending confirmation email:', emailError);
-      // Don't throw - email failure shouldn't fail the webhook
     }
 
     console.log('✅ Payment intent succeeded handler completed');
@@ -289,7 +290,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ❌ PAYMENT FAILED HANDLER (unchanged)
+// ❌ PAYMENT FAILED HANDLER
 // ═══════════════════════════════════════════════════════════════
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   try {
@@ -331,7 +332,7 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 📧 EMAIL TEMPLATE GENERATOR (unchanged - same as before)
+// 📧 EMAIL TEMPLATE GENERATOR
 // ═══════════════════════════════════════════════════════════════
 function generateOrderConfirmationEmail(data: {
   orderNumber: string;
@@ -369,25 +370,17 @@ function generateOrderConfirmationEmail(data: {
     </head>
     <body style="margin: 0; padding: 0; font-family: 'IBM Plex Mono', monospace; background-color: #f9fafb;">
       <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-        <!-- Header -->
         <div style="background-color: #000000; color: #ffffff; padding: 32px 20px; text-align: center;">
           <h1 style="margin: 0; font-weight: 300; font-size: 28px; letter-spacing: 0.15em;">NOWIHT</h1>
         </div>
-
-        <!-- Content -->
         <div style="padding: 40px 20px;">
-          <!-- Thank You Message -->
           <h2 style="margin: 0 0 16px 0; font-weight: 300; font-size: 24px; letter-spacing: 0.1em;">ORDER CONFIRMED</h2>
           <p style="margin: 0 0 24px 0; color: #666;">Thank you for your purchase, ${data.customerName}.</p>
-
-          <!-- Order Number -->
           <div style="background-color: #f9fafb; padding: 20px; margin-bottom: 32px; border-left: 4px solid #000000;">
             <div style="font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Order Number</div>
             <div style="font-size: 20px; font-weight: 500; letter-spacing: 0.05em;">${data.orderNumber}</div>
           </div>
-
           ${data.couponCode ? `
-          <!-- Coupon Applied -->
           <div style="background-color: #dcfce7; border: 1px solid #86efac; padding: 16px; margin-bottom: 24px; border-radius: 4px;">
             <div style="color: #166534; font-weight: 500; margin-bottom: 4px;">🎟️ Coupon Applied: ${data.couponCode}</div>
             <div style="color: #15803d; font-size: 14px;">
@@ -396,14 +389,10 @@ function generateOrderConfirmationEmail(data: {
             </div>
           </div>
           ` : ''}
-
-          <!-- Order Items -->
           <h3 style="margin: 0 0 16px 0; font-weight: 500; font-size: 16px; text-transform: uppercase; letter-spacing: 0.1em;">Order Items</h3>
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 32px;">
             ${itemsHtml}
           </table>
-
-          <!-- Order Summary -->
           <table style="width: 100%; margin-bottom: 32px;">
             <tr>
               <td style="padding: 8px 0; color: #666;">Subtotal</td>
@@ -430,8 +419,6 @@ function generateOrderConfirmationEmail(data: {
               <td style="padding: 16px 0 8px 0; text-align: right; font-weight: 600; font-size: 18px;">$${data.total.toFixed(2)}</td>
             </tr>
           </table>
-
-          <!-- Shipping Address -->
           <div style="background-color: #f9fafb; padding: 20px; margin-bottom: 32px;">
             <h3 style="margin: 0 0 12px 0; font-weight: 500; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em;">Shipping Address</h3>
             <div style="color: #666; line-height: 1.6;">
@@ -441,23 +428,17 @@ function generateOrderConfirmationEmail(data: {
               ${data.shippingAddress.country}
             </div>
           </div>
-
-          <!-- What's Next -->
           <h3 style="margin: 0 0 16px 0; font-weight: 500; font-size: 16px; text-transform: uppercase; letter-spacing: 0.1em;">What's Next?</h3>
           <div style="color: #666; line-height: 1.8; margin-bottom: 32px;">
             1. We're preparing your order for shipment<br>
             2. Quality check - Every item is carefully inspected<br>
             3. You'll receive tracking information once shipped
           </div>
-
-          <!-- Support -->
           <div style="text-align: center; padding: 24px 0; border-top: 1px solid #e5e5e5;">
             <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">Need help with your order?</p>
             <a href="mailto:support@nowiht.com" style="color: #000000; text-decoration: underline;">Contact Support</a>
           </div>
         </div>
-
-        <!-- Footer -->
         <div style="background-color: #000000; color: #ffffff; padding: 24px 20px; text-align: center;">
           <p style="margin: 0 0 8px 0; font-size: 12px; opacity: 0.8;">NOWIHT - Luxury Lifestyle</p>
           <p style="margin: 0; font-size: 11px; opacity: 0.6;">© ${new Date().getFullYear()} NOWIHT. All rights reserved.</p>
