@@ -2,7 +2,7 @@
 // ═══════════════════════════════════════════════════════════════
 // 🔒 NOWIHT - Admin Products API (NextAuth v5 Compatible)
 // Protected with adminGuard + Supabase service role
-// ✅ PROFESSIONAL: With audit trail (created_by, updated_by)
+// ✅ PROFESSIONAL: With audit trail + AUTO SLUG GENERATION
 // ═══════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,6 +10,20 @@ import { withAdminAuth, getCurrentAdmin } from '@/lib/auth/adminGuard';
 import { requireAdmin } from '@/lib/supabase/client';
 
 export const dynamic = 'force-dynamic';
+
+// ============================================
+// HELPER: Generate slug from name
+// ============================================
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with -
+    .replace(/-+/g, '-') // Replace multiple - with single -
+    .replace(/^-+/, '') // Trim - from start
+    .replace(/-+$/, ''); // Trim - from end
+}
 
 // ============================================
 // HELPER: Transform camelCase to snake_case
@@ -71,6 +85,7 @@ export async function GET() {
  * POST /api/admin/products
  * Create a new product
  * PROTECTED: Admin only (using withAdminAuth wrapper)
+ * ✅ NEW: Auto-generates slug from name
  */
 export const POST = withAdminAuth(async (request, admin) => {
   try {
@@ -82,6 +97,12 @@ export const POST = withAdminAuth(async (request, admin) => {
     // ✅ Transform camelCase to snake_case
     const transformedData = transformFieldNames(productData);
     console.log('🔄 Transformed data:', Object.keys(transformedData));
+
+    // ✅ AUTO-GENERATE SLUG if not provided
+    if (!transformedData.slug && transformedData.name) {
+      transformedData.slug = generateSlug(transformedData.name);
+      console.log('🏷️ Auto-generated slug:', transformedData.slug);
+    }
 
     // ✅ PROFESSIONAL: Add audit trail metadata
     const enrichedData = {
@@ -123,6 +144,7 @@ export const POST = withAdminAuth(async (request, admin) => {
  * PUT /api/admin/products?id=xxx
  * Update a product
  * PROTECTED: Admin only
+ * ✅ NEW: Auto-generates slug if name changed
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -156,6 +178,12 @@ export async function PUT(request: NextRequest) {
     // ✅ Transform camelCase to snake_case
     const transformedData = transformFieldNames(productData);
     console.log('🔄 Transformed fields:', Object.keys(transformedData));
+
+    // ✅ AUTO-GENERATE SLUG if name provided but slug not
+    if (transformedData.name && !transformedData.slug) {
+      transformedData.slug = generateSlug(transformedData.name);
+      console.log('🏷️ Auto-generated slug:', transformedData.slug);
+    }
 
     // ✅ PROFESSIONAL: Add audit trail metadata
     const enrichedData = {
