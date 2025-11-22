@@ -1,6 +1,8 @@
 // app/api/payment-intent/route.ts
-// 🔥 FIXED: Added detailed error logging & validation
-// ✅ Helps debug 500 errors with specific error messages
+// ═══════════════════════════════════════════════════════════════
+// 💳 NOWIHT - PAYMENT INTENT CREATION API
+// 🔥 FIX v6: Forward ALL metadata to Stripe (no filtering!)
+// ═══════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
@@ -11,11 +13,7 @@ export async function POST(request: NextRequest) {
 
     // 1️⃣ Parse request body
     const body = await request.json();
-    console.log('📦 [PAYMENT-INTENT] Request body:', {
-      amount: body.amount,
-      currency: body.currency,
-      hasMetadata: !!body.metadata,
-    });
+    console.log('📦 [PAYMENT-INTENT] Request body received');
 
     const { amount, currency = 'usd', metadata } = body;
 
@@ -49,24 +47,17 @@ export async function POST(request: NextRequest) {
     const orderNumber = `NOW-${Date.now().toString().slice(-8)}`;
     console.log('🎫 [PAYMENT-INTENT] Generated order number:', orderNumber);
 
-    // 5️⃣ Prepare metadata with safe defaults
+    // 5️⃣ ✅ FIX: Forward ALL metadata from frontend + add orderNumber
+    // Don't filter or transform - send everything!
     const paymentMetadata = {
-      orderNumber,
-      customerName: metadata?.customer_name || 'Guest Customer',
-      customerEmail: metadata?.customer_email || '',
-      customerPhone: metadata?.customer_phone || '',
-      shippingAddress: metadata?.shipping_address || '',
-      shippingCity: metadata?.shipping_city || '',
-      shippingState: metadata?.shipping_state || '',
-      shippingZip: metadata?.shipping_zip || '',
-      shippingCountry: metadata?.shipping_country || '',
-      shippingMethod: metadata?.shipping_method || 'standard',
-      couponCode: metadata?.coupon_code || '',
-      source: 'nowiht-checkout',
-      itemCount: metadata?.itemCount || '0',
+      ...metadata, // ✅ Spread ALL fields from frontend
+      orderNumber, // ✅ Add generated order number
+      source: 'nowiht-checkout', // ✅ Add source identifier
     };
 
-    console.log('📋 [PAYMENT-INTENT] Metadata prepared:', paymentMetadata);
+    console.log('📋 [PAYMENT-INTENT] Metadata keys:', Object.keys(paymentMetadata));
+    console.log('🎟️ [PAYMENT-INTENT] Coupon code:', paymentMetadata.coupon_code || 'none');
+    console.log('🛒 [PAYMENT-INTENT] Cart items length:', paymentMetadata.cart_items?.length || 0);
 
     // 6️⃣ Create payment intent with Stripe
     console.log('💳 [PAYMENT-INTENT] Calling Stripe API...');
@@ -75,7 +66,7 @@ export async function POST(request: NextRequest) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount), // Amount already in cents from frontend
       currency,
-      metadata: paymentMetadata,
+      metadata: paymentMetadata, // ✅ Send COMPLETE metadata
       automatic_payment_methods: {
         enabled: true,
       },
