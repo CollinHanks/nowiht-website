@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Ruler, Timer, Eye, ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import ConditionalHeader from "@/components/layout/ConditionalHeader"; // 🔥 CHANGED: Was Header
+import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import QuickViewModal from "@/components/modals/QuickViewModal";
 import WishlistHeart from "@/components/wishlist/WishlistHeart";
@@ -681,7 +681,7 @@ export default function HomePage() {
   if (!mounted) {
     return (
       <>
-        <ConditionalHeader />
+        <Header />
         <div className="min-h-screen bg-black" />
         <Footer />
       </>
@@ -690,7 +690,7 @@ export default function HomePage() {
 
   return (
     <>
-      <ConditionalHeader />
+      <Header />
 
       <HomepageSearchBar onSearchClick={() => setIsSearchOpen(true)} />
 

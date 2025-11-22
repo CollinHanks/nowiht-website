@@ -365,7 +365,7 @@ export default function AdminMediaPage() {
         className="hidden"
       />
 
-      <header className="bg-white border-b sticky top-0 z-20">
+      
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
@@ -548,7 +548,7 @@ export default function AdminMediaPage() {
             </motion.div>
           )}
         </AnimatePresence>
-      </header>
+
 
       <main className="p-6">
         <AnimatePresence>

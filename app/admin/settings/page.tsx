@@ -391,7 +391,7 @@ export default function AdminSettingsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-10">
+      
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
             <Link
@@ -435,7 +435,7 @@ export default function AdminSettingsPage() {
             })}
           </div>
         </div>
-      </header>
+
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
