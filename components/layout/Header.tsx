@@ -62,6 +62,11 @@ export default function Header() {
     await signOut({ callbackUrl: "/" });
   };
 
+  // ✅ CRITICAL: Hide Header in admin routes
+  if (pathname.startsWith("/admin")) {
+    return null;
+  }
+
   return (
     <>
       <header
@@ -192,6 +197,7 @@ export default function Header() {
               )}
             </div>
 
+            {/* Wishlist */}
             <Link
               href="/wishlist"
               aria-label="Wishlist"
@@ -203,15 +209,16 @@ export default function Header() {
             >
               <Heart className="w-5 h-5" />
               {isMounted && wishlistCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-semibold text-white">
+                <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {wishlistCount}
                 </span>
               )}
             </Link>
 
+            {/* Cart */}
             <button
               onClick={toggleCart}
-              aria-label="Cart"
+              aria-label="Shopping Cart"
               className={cn(
                 "relative transition-all duration-300 hover:scale-105",
                 textColor,
@@ -220,7 +227,7 @@ export default function Header() {
             >
               <ShoppingBag className="w-5 h-5" />
               {isMounted && itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[10px] font-semibold text-white">
+                <span className="absolute -top-2 -right-2 w-5 h-5 bg-black text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {itemCount}
                 </span>
               )}
@@ -229,78 +236,82 @@ export default function Header() {
         </div>
       </header>
 
-      {/* MOBILE HEADER */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm h-16 lg:hidden">
-        <div className="h-full flex items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label="Menu"
-              className="flex items-center justify-center w-11 h-11 text-black hover:bg-gray-50 rounded-lg transition-colors touch-manipulation"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+      {/* Mobile Bottom Navigation */}
+      <nav
+        className={cn(
+          "fixed bottom-0 left-0 right-0 z-50 lg:hidden",
+          "bg-white border-t border-gray-200 shadow-lg"
+        )}
+      >
+        <div className="grid grid-cols-5 h-16">
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="flex flex-col items-center justify-center gap-1 hover:bg-gray-50 transition-colors active:bg-gray-100"
+            aria-label="Menu"
+          >
+            <Menu className="w-5 h-5" />
+            <span className="text-[10px] font-medium tracking-wide">MENU</span>
+          </button>
 
-            <div
-              className={cn(
-                "transition-all duration-300 ease-in-out",
-                showMobileSearchIcon
-                  ? "opacity-100 scale-100"
-                  : "opacity-0 scale-95 pointer-events-none"
-              )}
+          {showMobileSearchIcon && (
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="flex flex-col items-center justify-center gap-1 hover:bg-gray-50 transition-colors active:bg-gray-100"
+              aria-label="Search"
             >
-              <button
-                onClick={() => setIsSearchOpen(true)}
-                aria-label="Search"
-                className="flex items-center justify-center w-11 h-11 text-black hover:bg-gray-50 rounded-lg transition-colors touch-manipulation"
-              >
-                <Search className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+              <Search className="w-5 h-5" />
+              <span className="text-[10px] font-medium tracking-wide">SEARCH</span>
+            </button>
+          )}
 
           <Link
             href="/"
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            className="flex flex-col items-center justify-center gap-1 hover:bg-gray-50 transition-colors active:bg-gray-100"
+            aria-label="Home"
           >
             <Image
               src="/images/logo-black.png"
               alt={BRAND_NAME}
-              width={100}
-              height={28}
-              priority
+              width={24}
+              height={24}
+              className="w-6 h-6"
             />
           </Link>
 
-          <div className="flex items-center gap-2">
-            <Link
-              href={session ? "/account" : "/login"}
-              className="flex items-center justify-center w-11 h-11 text-black hover:bg-gray-50 rounded-lg transition-colors touch-manipulation"
-              aria-label="Account"
-            >
-              <User className="w-5 h-5" />
-            </Link>
+          <Link
+            href="/wishlist"
+            className="relative flex flex-col items-center justify-center gap-1 hover:bg-gray-50 transition-colors active:bg-gray-100"
+            aria-label="Wishlist"
+          >
+            <Heart className="w-5 h-5" />
+            {isMounted && wishlistCount > 0 && (
+              <span className="absolute top-2 right-1/2 translate-x-3 -translate-y-1 w-4 h-4 bg-red-600 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                {wishlistCount}
+              </span>
+            )}
+            <span className="text-[10px] font-medium tracking-wide">WISHLIST</span>
+          </Link>
 
-            <button
-              onClick={toggleCart}
-              className="relative flex items-center justify-center w-11 h-11 text-black hover:bg-gray-50 rounded-lg transition-colors touch-manipulation"
-              aria-label="Cart"
-            >
-              <ShoppingBag className="w-5 h-5" />
-              {isMounted && itemCount > 0 && (
-                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[9px] font-semibold text-white">
-                  {itemCount > 9 ? "9+" : itemCount}
-                </span>
-              )}
-            </button>
-          </div>
+          <button
+            onClick={toggleCart}
+            className="relative flex flex-col items-center justify-center gap-1 hover:bg-gray-50 transition-colors active:bg-gray-100"
+            aria-label="Cart"
+          >
+            <ShoppingBag className="w-5 h-5" />
+            {isMounted && itemCount > 0 && (
+              <span className="absolute top-2 right-1/2 translate-x-3 -translate-y-1 w-4 h-4 bg-black text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                {itemCount}
+              </span>
+            )}
+            <span className="text-[10px] font-medium tracking-wide">CART</span>
+          </button>
         </div>
-      </header>
+      </nav>
 
-      {/* Mobile Menu Drawer */}
+      {/* Full-Screen Slide-in Menu */}
       <div
         className={cn(
-          "fixed top-0 right-0 bottom-0 w-full max-w-md bg-white z-[100] transform transition-transform duration-500 ease-out shadow-2xl overflow-y-auto",
+          "fixed inset-y-0 right-0 w-full lg:w-[500px] bg-white z-[100] shadow-2xl transition-transform duration-500 ease-out overflow-y-auto",
           isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
         )}
       >

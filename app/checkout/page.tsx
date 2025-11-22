@@ -3,6 +3,7 @@
 // 🛒 NOWIHT - CHECKOUT WITH STRIPE PAYMENT ELEMENT
 // ✅ FIXED: Customer info in metadata + Processing state
 // 🔥 FIX v2: Customer email/name now sent in metadata to webhook
+// 🎟️ FIX v3: Coupon API integration with FREE100 & WELCOME20
 // ═══════════════════════════════════════════════════════════════
 
 'use client';
@@ -11,7 +12,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Truck, CreditCard, Check, AlertCircle, Lock } from 'lucide-react';
+import { Truck, CreditCard, Check, AlertCircle, Lock, X } from 'lucide-react';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { useCartStore } from '@/store/cartStore';
@@ -165,6 +166,7 @@ function StripePaymentForm({
 // 🎯 MAIN CHECKOUT COMPONENT
 // ✅ FIXED: Simplified flow (Shipping → Payment → Success)
 // 🔥 FIX v2: Customer info sent in metadata
+// 🎟️ FIX v3: Coupon API integration
 // ═══════════════════════════════════════════════════════════════
 export default function CheckoutPage() {
   const router = useRouter();
@@ -172,8 +174,19 @@ export default function CheckoutPage() {
 
   const [mounted, setMounted] = useState(false);
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('shipping');
+
+  // ✅ NEW: Coupon state
   const [couponCode, setCouponCode] = useState('');
-  const [discount, setDiscount] = useState(0);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    type: string;
+    value: number;
+    discount: number;
+    freeShipping: boolean;
+    description?: string;
+  } | null>(null);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard');
   const [countrySearch, setCountrySearch] = useState('');
@@ -208,12 +221,16 @@ export default function CheckoutPage() {
 
   const selectedCountry = watchShipping('country');
 
-  // Pricing calculations (in cents for Stripe)
+  // ✅ UPDATED: Pricing calculations with coupon support (in cents for Stripe)
   const subtotalDollars = getCartSubtotal();
   const subtotal = Math.round(subtotalDollars * 100); // Convert to cents
-  const shippingCost = shippingMethod === 'express' ? 1500 : subtotalDollars > 100 ? 0 : 1000;
-  const tax = Math.round(subtotal * 0.08); // 8% tax
-  const discountCents = Math.round(discount * 100);
+
+  // ✅ NEW: Apply free shipping if coupon provides it
+  const baseShippingCost = shippingMethod === 'express' ? 1500 : subtotalDollars > 100 ? 0 : 1000;
+  const shippingCost = appliedCoupon?.freeShipping ? 0 : baseShippingCost;
+
+  const discountCents = appliedCoupon?.discount ? Math.round(appliedCoupon.discount * 100) : 0;
+  const tax = Math.round((subtotal - discountCents) * 0.08); // 8% tax on discounted amount
   const total = subtotal + shippingCost + tax - discountCents;
 
   useEffect(() => {
@@ -228,13 +245,53 @@ export default function CheckoutPage() {
     }
   }, [mounted, items.length, currentStep, router]);
 
-  const handleApplyCoupon = () => {
-    if (couponCode.toLowerCase() === 'nowiht10') {
-      setDiscount(subtotalDollars * 0.1);
-      alert('Coupon applied! 10% discount');
-    } else {
-      alert('Invalid coupon code. Try: NOWIHT10');
+  // ✅ NEW: Apply Coupon Handler with API validation
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      alert('Please enter a coupon code');
+      return;
     }
+
+    setCouponLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: couponCode.toUpperCase(),
+          subtotal: subtotalDollars,
+          userId: null, // Add user ID if logged in
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        alert(data.error || 'Invalid coupon code');
+        setAppliedCoupon(null);
+        return;
+      }
+
+      // ✅ Success!
+      setAppliedCoupon(data.coupon);
+      alert(`Coupon "${data.coupon.code}" applied successfully!`);
+      console.log('✅ Coupon applied:', data.coupon);
+    } catch (error) {
+      console.error('Error applying coupon:', error);
+      alert('Failed to apply coupon. Please try again.');
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  // ✅ NEW: Remove Coupon Handler
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    console.log('🗑️ Coupon removed');
   };
 
   // ═══════════════════════════════════════════════════════════════
@@ -249,53 +306,44 @@ export default function CheckoutPage() {
     try {
       // 🔥 NEW: Build metadata object with customer info
       const metadata = {
-        customerEmail: data.email,
-        customerName: `${data.firstName} ${data.lastName}`,
-        customerPhone: data.phone,
-        shippingAddress: `${data.address}, ${data.city}, ${data.state} ${data.zipCode}, ${data.country}`,
-        items: JSON.stringify(
-          items.map((item) => ({
-            id: item.product.id,
-            name: item.product.name,
-            quantity: item.quantity,
-            price: item.product.price,
-            size: item.size,
-            color: item.color,
-          }))
-        ),
-        itemCount: items.length.toString(),
-        subtotal: subtotal.toString(),
-        shippingCost: shippingCost.toString(),
-        tax: tax.toString(),
-        total: total.toString(),
-        shippingMethod: shippingMethod,
+        customer_email: data.email,
+        customer_name: `${data.firstName} ${data.lastName}`,
+        customer_phone: data.phone,
+        shipping_address: data.address,
+        shipping_apartment: data.apartment || '',
+        shipping_city: data.city,
+        shipping_state: data.state,
+        shipping_zip: data.zipCode,
+        shipping_country: data.country,
+        shipping_method: shippingMethod,
+        // ✅ NEW: Add coupon to metadata
+        coupon_code: appliedCoupon?.code || '',
       };
 
-      console.log('🔥 Sending metadata:', metadata);
+      console.log('📦 Creating payment intent with metadata:', metadata);
 
-      // Create PaymentIntent with metadata
-      const response = await fetch('/api/payment-intent', {
+      const response = await fetch('/api/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: total, // ✅ Already includes subtotal + shipping + tax
-          metadata, // 🔥 NEW: Send all customer info in metadata
+          amount: total,
+          metadata, // ✅ Send customer info in metadata
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create payment intent');
+      const result = await response.json();
+
+      if (!result.clientSecret) {
+        throw new Error(result.error || 'Failed to create payment intent');
       }
 
-      const paymentData = await response.json();
-      console.log('✅ Payment intent created:', paymentData);
-
-      setClientSecret(paymentData.clientSecret);
-      setPaymentIntentId(paymentData.paymentIntentId);
+      console.log('✅ Payment intent created:', result.paymentIntentId);
+      setClientSecret(result.clientSecret);
+      setPaymentIntentId(result.paymentIntentId);
       setCurrentStep('payment');
-    } catch (err) {
-      console.error('Error creating payment intent:', err);
-      setError('Failed to initialize payment. Please try again.');
+    } catch (err: any) {
+      console.error('❌ Error creating payment intent:', err);
+      setError(err.message || 'Failed to process checkout. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -303,228 +351,266 @@ export default function CheckoutPage() {
 
   // ═══════════════════════════════════════════════════════════════
   // 💳 STEP 2: PAYMENT SUCCESS
-  // ✅ FIXED: Redirect to success page immediately after payment
+  // ✅ FIXED: Redirect to success page with payment intent ID
   // ═══════════════════════════════════════════════════════════════
-  const handlePaymentSuccess = (confirmedPaymentIntentId: string) => {
-    console.log('✅ Payment succeeded:', confirmedPaymentIntentId);
+  const handlePaymentSuccess = (successPaymentIntentId: string) => {
+    console.log('✅ Payment successful, redirecting to success page...');
+    console.log('📝 Payment Intent ID:', successPaymentIntentId);
 
-    // Clear cart
+    // Clear cart before redirect (important!)
     clearCart();
 
-    // Redirect to success page
-    router.push(`/checkout/success?payment_intent=${confirmedPaymentIntentId}`);
+    // Redirect to success page with payment intent ID
+    router.push(`/checkout/success?payment_intent=${successPaymentIntentId}`);
   };
 
   const handlePaymentError = (errorMessage: string) => {
+    console.error('❌ Payment error:', errorMessage);
     setError(errorMessage);
-    setIsProcessing(false);
   };
 
-  // Filter countries for search
   const filteredCountries = COUNTRIES.filter((country) =>
     country.toLowerCase().includes(countrySearch.toLowerCase())
   );
 
-  if (!mounted || items.length === 0) {
+  if (!mounted) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-light tracking-wide mb-2">CHECKOUT</h1>
-          <p className="text-sm text-gray-600">Complete your order in 2 simple steps</p>
-        </div>
-
-        {/* Progress Indicator */}
-        <div className="mb-12">
-          <div className="flex items-center justify-between max-w-xl">
-            {[
-              { step: 'shipping', label: 'Shipping', icon: Truck },
-              { step: 'payment', label: 'Payment', icon: CreditCard },
-            ].map(({ step, label, icon: Icon }, index) => (
-              <div key={step} className="flex items-center flex-1">
-                <div className="flex flex-col items-center flex-1">
-                  <div
-                    className={cn(
-                      'w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all',
-                      currentStep === step
-                        ? 'border-black bg-black text-white'
-                        : index < ['shipping', 'payment'].indexOf(currentStep)
-                          ? 'border-black bg-black text-white'
-                          : 'border-gray-300 text-gray-400'
-                    )}
-                  >
-                    {index < ['shipping', 'payment'].indexOf(currentStep) ? (
-                      <Check className="w-5 h-5" />
-                    ) : (
-                      <Icon className="w-5 h-5" />
-                    )}
-                  </div>
-                  <span
-                    className={cn(
-                      'text-xs mt-2 font-medium tracking-wide',
-                      currentStep === step ? 'text-black' : 'text-gray-400'
-                    )}
-                  >
-                    {label}
-                  </span>
-                </div>
-                {index < 1 && (
-                  <div
-                    className={cn(
-                      'flex-1 h-0.5 mx-4 transition-all',
-                      index < ['shipping', 'payment'].indexOf(currentStep)
-                        ? 'bg-black'
-                        : 'bg-gray-300'
-                    )}
-                  />
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-light tracking-wide mb-2">CHECKOUT</h1>
+          <div className="flex items-center justify-center gap-8 mt-8">
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center',
+                  currentStep === 'shipping'
+                    ? 'bg-black text-white'
+                    : 'bg-green-500 text-white'
+                )}
+              >
+                {currentStep === 'payment' ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <Truck className="w-4 h-4" />
                 )}
               </div>
-            ))}
+              <span
+                className={cn(
+                  'text-sm font-medium',
+                  currentStep === 'shipping' ? 'text-black' : 'text-green-600'
+                )}
+              >
+                Shipping
+              </span>
+            </div>
+
+            <div className="w-24 h-px bg-gray-300" />
+
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center',
+                  currentStep === 'payment'
+                    ? 'bg-black text-white'
+                    : 'bg-gray-300 text-gray-600'
+                )}
+              >
+                <CreditCard className="w-4 h-4" />
+              </div>
+              <span
+                className={cn(
+                  'text-sm font-medium',
+                  currentStep === 'payment' ? 'text-black' : 'text-gray-600'
+                )}
+              >
+                Payment
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Error Alert */}
+        {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm text-red-800 font-medium">{error}</p>
+          <div className="max-w-2xl mx-auto mb-6">
+            <div className="bg-red-50 border border-red-200 p-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="text-red-600 hover:text-red-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
 
+        {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Forms */}
           <div className="lg:col-span-2">
-            {/* STEP 1: SHIPPING INFO */}
+            {/* STEP 1: SHIPPING */}
             {currentStep === 'shipping' && (
-              <form onSubmit={handleSubmitShipping(onShippingSubmit)} className="space-y-6">
+              <form
+                onSubmit={handleSubmitShipping(onShippingSubmit)}
+                className="space-y-8"
+              >
+                {/* Contact Information */}
                 <div className="bg-white border border-gray-200 p-6">
-                  <h3 className="font-semibold text-lg mb-6 tracking-wide">SHIPPING INFORMATION</h3>
+                  <h3 className="font-semibold text-lg mb-6 tracking-wide">
+                    CONTACT INFORMATION
+                  </h3>
 
                   <div className="space-y-4">
-                    {/* Email */}
                     <div>
-                      <label className="block text-sm font-medium mb-2">Email Address</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email address
+                      </label>
                       <input
                         type="email"
                         {...registerShipping('email')}
                         className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
-                        placeholder="your.email@example.com"
+                        placeholder="you@example.com"
                       />
                       {shippingErrors.email && (
-                        <p className="text-xs text-red-600 mt-1">{shippingErrors.email.message}</p>
+                        <p className="text-red-600 text-xs mt-1">
+                          {shippingErrors.email.message}
+                        </p>
                       )}
                     </div>
+                  </div>
+                </div>
 
-                    {/* Name */}
+                {/* Shipping Address */}
+                <div className="bg-white border border-gray-200 p-6">
+                  <h3 className="font-semibold text-lg mb-6 tracking-wide">
+                    SHIPPING ADDRESS
+                  </h3>
+
+                  <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium mb-2">First Name</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          First name
+                        </label>
                         <input
                           type="text"
                           {...registerShipping('firstName')}
                           className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
-                          placeholder="John"
                         />
                         {shippingErrors.firstName && (
-                          <p className="text-xs text-red-600 mt-1">
+                          <p className="text-red-600 text-xs mt-1">
                             {shippingErrors.firstName.message}
                           </p>
                         )}
                       </div>
+
                       <div>
-                        <label className="block text-sm font-medium mb-2">Last Name</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Last name
+                        </label>
                         <input
                           type="text"
                           {...registerShipping('lastName')}
                           className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
-                          placeholder="Doe"
                         />
                         {shippingErrors.lastName && (
-                          <p className="text-xs text-red-600 mt-1">
+                          <p className="text-red-600 text-xs mt-1">
                             {shippingErrors.lastName.message}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    {/* Address */}
                     <div>
-                      <label className="block text-sm font-medium mb-2">Address</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Address
+                      </label>
                       <input
                         type="text"
                         {...registerShipping('address')}
                         className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
-                        placeholder="123 Main Street"
+                        placeholder="Street address"
                       />
                       {shippingErrors.address && (
-                        <p className="text-xs text-red-600 mt-1">{shippingErrors.address.message}</p>
+                        <p className="text-red-600 text-xs mt-1">
+                          {shippingErrors.address.message}
+                        </p>
                       )}
                     </div>
 
-                    {/* Apartment */}
                     <div>
-                      <label className="block text-sm font-medium mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Apartment, suite, etc. (optional)
                       </label>
                       <input
                         type="text"
                         {...registerShipping('apartment')}
                         className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
-                        placeholder="Apt 4B"
                       />
                     </div>
 
-                    {/* City, State, ZIP */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-sm font-medium mb-2">City</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          City
+                        </label>
                         <input
                           type="text"
                           {...registerShipping('city')}
                           className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
-                          placeholder="New York"
                         />
                         {shippingErrors.city && (
-                          <p className="text-xs text-red-600 mt-1">{shippingErrors.city.message}</p>
+                          <p className="text-red-600 text-xs mt-1">
+                            {shippingErrors.city.message}
+                          </p>
                         )}
                       </div>
+
                       <div>
-                        <label className="block text-sm font-medium mb-2">State/Province</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          State/Province
+                        </label>
                         <input
                           type="text"
                           {...registerShipping('state')}
                           className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
-                          placeholder="NY"
                         />
                         {shippingErrors.state && (
-                          <p className="text-xs text-red-600 mt-1">{shippingErrors.state.message}</p>
+                          <p className="text-red-600 text-xs mt-1">
+                            {shippingErrors.state.message}
+                          </p>
                         )}
                       </div>
+
                       <div>
-                        <label className="block text-sm font-medium mb-2">ZIP/Postal Code</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          ZIP/Postal Code
+                        </label>
                         <input
                           type="text"
                           {...registerShipping('zipCode')}
                           className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
-                          placeholder="10001"
                         />
                         {shippingErrors.zipCode && (
-                          <p className="text-xs text-red-600 mt-1">
+                          <p className="text-red-600 text-xs mt-1">
                             {shippingErrors.zipCode.message}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    {/* Country with Search */}
                     <div className="relative">
-                      <label className="block text-sm font-medium mb-2">Country</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Country
+                      </label>
                       <input
                         type="text"
                         value={countrySearch || selectedCountry}
@@ -534,10 +620,11 @@ export default function CheckoutPage() {
                         }}
                         onFocus={() => setShowCountryDropdown(true)}
                         className="w-full px-4 py-3 border border-gray-300 focus:border-black focus:outline-none"
-                        placeholder="Search country..."
+                        placeholder="Search countries..."
                       />
+
                       {showCountryDropdown && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 max-h-48 overflow-y-auto shadow-lg">
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 max-h-60 overflow-y-auto shadow-lg">
                           {filteredCountries.map((country) => (
                             <button
                               key={country}
@@ -547,7 +634,7 @@ export default function CheckoutPage() {
                                 setCountrySearch('');
                                 setShowCountryDropdown(false);
                               }}
-                              className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+                              className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors text-sm"
                             >
                               {country}
                             </button>
@@ -555,13 +642,16 @@ export default function CheckoutPage() {
                         </div>
                       )}
                       {shippingErrors.country && (
-                        <p className="text-xs text-red-600 mt-1">{shippingErrors.country.message}</p>
+                        <p className="text-red-600 text-xs mt-1">
+                          {shippingErrors.country.message}
+                        </p>
                       )}
                     </div>
 
-                    {/* Phone */}
                     <div>
-                      <label className="block text-sm font-medium mb-2">Phone Number</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Phone Number
+                      </label>
                       <input
                         type="tel"
                         {...registerShipping('phone')}
@@ -569,7 +659,9 @@ export default function CheckoutPage() {
                         placeholder="+1 (555) 123-4567"
                       />
                       {shippingErrors.phone && (
-                        <p className="text-xs text-red-600 mt-1">{shippingErrors.phone.message}</p>
+                        <p className="text-red-600 text-xs mt-1">
+                          {shippingErrors.phone.message}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -577,9 +669,12 @@ export default function CheckoutPage() {
 
                 {/* Shipping Method */}
                 <div className="bg-white border border-gray-200 p-6">
-                  <h3 className="font-semibold text-lg mb-6 tracking-wide">SHIPPING METHOD</h3>
+                  <h3 className="font-semibold text-lg mb-6 tracking-wide">
+                    SHIPPING METHOD
+                  </h3>
+
                   <div className="space-y-3">
-                    <label className="flex items-center justify-between p-4 border-2 border-black cursor-pointer hover:bg-gray-50 transition-colors">
+                    <label className="flex items-center justify-between p-4 border-2 border-black cursor-pointer">
                       <div className="flex items-center gap-3">
                         <input
                           type="radio"
@@ -595,7 +690,7 @@ export default function CheckoutPage() {
                         </div>
                       </div>
                       <p className="font-medium text-sm">
-                        {subtotalDollars > 100 ? (
+                        {subtotalDollars >= 100 ? (
                           <span className="text-green-600">FREE</span>
                         ) : (
                           '$10.00'
@@ -708,52 +803,100 @@ export default function CheckoutPage() {
                 ))}
               </div>
 
-              {/* Coupon Code */}
+              {/* ✅ UPDATED: Coupon Code Section with Applied State */}
               <div className="mb-6 pb-6 border-b border-gray-200">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value)}
-                    placeholder="Coupon code"
-                    className="flex-1 px-4 py-2 border border-gray-300 focus:border-black focus:outline-none text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyCoupon}
-                    className="px-6 py-2 bg-black text-white text-sm uppercase tracking-wider hover:bg-gray-800"
-                  >
-                    Apply
-                  </button>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Coupon code
+                </label>
+
+                {appliedCoupon ? (
+                  // Show applied coupon with remove button
+                  <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full" />
+                      <div>
+                        <span className="text-sm font-medium text-green-700">
+                          {appliedCoupon.code}
+                        </span>
+                        {appliedCoupon.freeShipping && (
+                          <span className="ml-2 text-xs text-green-600">(Free Shipping)</span>
+                        )}
+                        {appliedCoupon.discount > 0 && (
+                          <span className="ml-2 text-xs text-green-600">
+                            (-${appliedCoupon.discount.toFixed(2)})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="text-xs text-red-600 hover:text-red-700 font-medium"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  // Show coupon input
+                  <>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        onKeyPress={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                        placeholder="Enter code"
+                        className="flex-1 px-4 py-2 border border-gray-300 focus:border-black focus:outline-none text-sm uppercase"
+                        disabled={couponLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        disabled={couponLoading || !couponCode.trim()}
+                        className="px-6 py-2 bg-black text-white text-sm uppercase tracking-wider hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {couponLoading ? '...' : 'APPLY'}
+                      </button>
+                    </div>
+                    {/* Hint */}
+                    <p className="text-xs text-gray-500 mt-2">
+                      Try: <strong>FREE100</strong> (free shipping) or <strong>WELCOME20</strong> (20% off $50+)
+                    </p>
+                  </>
+                )}
               </div>
 
-              {/* Totals */}
+              {/* ✅ UPDATED: Totals with Coupon Support */}
               <div className="space-y-3 text-sm mb-6">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
                   <span className="font-medium">${(subtotal / 100).toFixed(2)}</span>
                 </div>
+
+                {/* ✅ NEW: Show discount if applied */}
+                {appliedCoupon && appliedCoupon.discount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span>-${appliedCoupon.discount.toFixed(2)}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between">
                   <span className="text-gray-600">Shipping</span>
-                  <span className="font-medium">
-                    {shippingCost === 0 ? (
-                      <span className="text-green-600">FREE</span>
-                    ) : (
-                      `$${(shippingCost / 100).toFixed(2)}`
-                    )}
-                  </span>
+                  {shippingCost === 0 ? (
+                    <span className="font-medium text-green-600">
+                      FREE{appliedCoupon?.freeShipping ? ' (Coupon)' : ''}
+                    </span>
+                  ) : (
+                    <span className="font-medium">${(shippingCost / 100).toFixed(2)}</span>
+                  )}
                 </div>
+
                 <div className="flex justify-between">
                   <span className="text-gray-600">Tax (8%)</span>
                   <span className="font-medium">${(tax / 100).toFixed(2)}</span>
                 </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Discount</span>
-                    <span>-${discount.toFixed(2)}</span>
-                  </div>
-                )}
+
                 <div className="flex justify-between pt-3 border-t border-gray-200 text-base">
                   <span className="font-semibold">Total</span>
                   <span className="font-semibold">${(total / 100).toFixed(2)}</span>
