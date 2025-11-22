@@ -4,6 +4,7 @@
 // ✅ FIXED: Customer info in metadata + Processing state
 // 🔥 FIX v2: Customer email/name now sent in metadata to webhook
 // 🎟️ FIX v3: Coupon API integration with FREE100 & WELCOME20
+// 🚀 FIX v4: FULL METADATA - Kupon, pricing breakdown, cart items
 // ═══════════════════════════════════════════════════════════════
 
 'use client';
@@ -167,6 +168,7 @@ function StripePaymentForm({
 // ✅ FIXED: Simplified flow (Shipping → Payment → Success)
 // 🔥 FIX v2: Customer info sent in metadata
 // 🎟️ FIX v3: Coupon API integration
+// 🚀 FIX v4: FULL METADATA with pricing breakdown & cart items
 // ═══════════════════════════════════════════════════════════════
 export default function CheckoutPage() {
   const router = useRouter();
@@ -297,6 +299,7 @@ export default function CheckoutPage() {
   // ═══════════════════════════════════════════════════════════════
   // 📦 STEP 1: SHIPPING SUBMIT
   // 🔥 FIX v2: Customer info sent in metadata object
+  // 🚀 FIX v4: FULL METADATA - Kupon, pricing, cart items
   // ═══════════════════════════════════════════════════════════════
   const onShippingSubmit = async (data: ShippingFormData) => {
     console.log('✅ Shipping validated:', data);
@@ -304,11 +307,14 @@ export default function CheckoutPage() {
     setIsProcessing(true);
 
     try {
-      // 🔥 NEW: Build metadata object with customer info
+      // 🚀 NEW: Build COMPLETE metadata object with ALL information
       const metadata = {
+        // Customer Information
         customer_email: data.email,
         customer_name: `${data.firstName} ${data.lastName}`,
         customer_phone: data.phone,
+
+        // Shipping Address
         shipping_address: data.address,
         shipping_apartment: data.apartment || '',
         shipping_city: data.city,
@@ -316,18 +322,47 @@ export default function CheckoutPage() {
         shipping_zip: data.zipCode,
         shipping_country: data.country,
         shipping_method: shippingMethod,
-        // ✅ NEW: Add coupon to metadata
+
+        // 💰 Pricing Breakdown (ALL in cents, as strings for Stripe metadata)
+        subtotal_cents: subtotal.toString(),
+        shipping_cost_cents: shippingCost.toString(),
+        original_shipping_cents: baseShippingCost.toString(), // Pre-coupon shipping
+        tax_cents: tax.toString(),
+        discount_cents: discountCents.toString(),
+        total_cents: total.toString(),
+
+        // 🎟️ Coupon Details (if applied)
         coupon_code: appliedCoupon?.code || '',
+        coupon_type: appliedCoupon?.type || '', // 'percentage' or 'fixed'
+        coupon_value: appliedCoupon?.value?.toString() || '', // 20 for 20% or 10 for $10
+        coupon_discount: appliedCoupon?.discount?.toString() || '0', // Actual discount in dollars
+        coupon_free_shipping: appliedCoupon?.freeShipping ? 'true' : 'false',
+
+        // 🛒 Cart Items (JSON string - Stripe metadata needs strings)
+        cart_items: JSON.stringify(items.map(item => ({
+          id: item.product.id,
+          name: item.product.name,
+          sku: item.product.sku || '',
+          size: item.size,
+          color: item.color,
+          quantity: item.quantity,
+          price: item.product.price,
+          total: item.product.price * item.quantity,
+          image: item.product.images[0],
+        }))),
+
+        // 📊 Order Summary
+        item_count: items.reduce((sum, item) => sum + item.quantity, 0).toString(),
       };
 
-      console.log('📦 Creating payment intent with metadata:', metadata);
+      console.log('📦 Creating payment intent with FULL metadata:', metadata);
 
       const response = await fetch('/api/payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: total,
-          metadata, // ✅ Send customer info in metadata
+          metadata, // ✅ Send COMPLETE metadata
         }),
       });
 
