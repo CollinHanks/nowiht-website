@@ -1,121 +1,159 @@
 // app/api/coupons/validate/route.ts
-// ═══════════════════════════════════════════════════════════════
 // 🎟️ NOWIHT - Coupon Validation API
-// ═══════════════════════════════════════════════════════════════
+// ✅ Validates coupon codes from database
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
 
 export const dynamic = 'force-dynamic';
 
+// ============================================
+// POST: VALIDATE COUPON
+// ============================================
 export async function POST(request: NextRequest) {
   try {
-    const { code, subtotal, userId } = await request.json();
+    const body = await request.json();
+    const { code, subtotal, userId } = body;
 
     // Validate input
-    if (!code || !subtotal) {
+    if (!code || typeof code !== 'string') {
       return NextResponse.json(
-        { success: false, error: 'Code and subtotal are required' },
+        { success: false, error: 'Coupon code is required' },
         { status: 400 }
       );
     }
 
-    console.log('🎟️ Validating coupon:', code, 'for subtotal:', subtotal);
+    if (!subtotal || subtotal <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid order subtotal' },
+        { status: 400 }
+      );
+    }
 
     // Fetch coupon from database
     const { data: coupon, error } = await supabase
       .from('coupons')
       .select('*')
       .eq('code', code.toUpperCase())
-      .eq('is_active', true)
       .single();
 
+    // Check if coupon exists
     if (error || !coupon) {
-      console.log('❌ Coupon not found or inactive:', code);
       return NextResponse.json(
-        { success: false, error: 'Invalid or expired coupon code' },
+        { success: false, error: 'Invalid coupon code' },
         { status: 404 }
       );
     }
 
-    // Check if coupon is valid (dates)
-    const now = new Date();
-    const validFrom = coupon.valid_from ? new Date(coupon.valid_from) : null;
-    const validUntil = coupon.valid_until ? new Date(coupon.valid_until) : null;
+    // ============================================
+    // VALIDATION CHECKS
+    // ============================================
 
-    if (validFrom && now < validFrom) {
+    // 1. Check if coupon is active
+    if (!coupon.is_active) {
       return NextResponse.json(
-        { success: false, error: 'Coupon is not yet valid' },
+        { success: false, error: 'This coupon is no longer active' },
         { status: 400 }
       );
     }
 
-    if (validUntil && now > validUntil) {
-      return NextResponse.json(
-        { success: false, error: 'Coupon has expired' },
-        { status: 400 }
-      );
+    // 2. Check expiry date
+    if (coupon.expires_at) {
+      const expiryDate = new Date(coupon.expires_at);
+      const now = new Date();
+      if (now > expiryDate) {
+        return NextResponse.json(
+          { success: false, error: 'This coupon has expired' },
+          { status: 400 }
+        );
+      }
     }
 
-    // Check minimum order value
-    if (coupon.min_order_value && subtotal < coupon.min_order_value) {
+    // 3. Check minimum order value
+    if (coupon.minimum_order && subtotal < coupon.minimum_order) {
       return NextResponse.json(
         {
           success: false,
-          error: `Minimum order value of $${coupon.min_order_value} required`,
+          error: `Minimum order value of $${coupon.minimum_order.toFixed(2)} required`,
         },
         { status: 400 }
       );
     }
 
-    // Check max uses
-    if (coupon.max_uses && coupon.uses_count >= coupon.max_uses) {
+    // 4. Check usage limit (total)
+    if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
       return NextResponse.json(
-        { success: false, error: 'Coupon usage limit reached' },
+        { success: false, error: 'This coupon has reached its usage limit' },
         { status: 400 }
       );
     }
 
-    // Calculate discount
-    let discount = 0;
-    let freeShipping = false;
+    // 5. Check user-specific usage limit (if user is logged in)
+    if (userId && coupon.usage_limit_per_user) {
+      const { count } = await supabase
+        .from('coupon_usage')
+        .select('*', { count: 'exact', head: true })
+        .eq('coupon_id', coupon.id)
+        .eq('user_id', userId);
 
-    switch (coupon.type) {
-      case 'percentage':
-        discount = (subtotal * coupon.value) / 100;
-        break;
-      case 'fixed':
-        discount = Math.min(coupon.value, subtotal); // Can't exceed subtotal
-        break;
-      case 'free_shipping':
-        freeShipping = true;
-        discount = 0; // Handled in shipping calculation
-        break;
+      if (count && count >= coupon.usage_limit_per_user) {
+        return NextResponse.json(
+          { success: false, error: 'You have already used this coupon' },
+          { status: 400 }
+        );
+      }
     }
 
-    console.log('✅ Coupon valid:', {
-      code,
-      type: coupon.type,
-      discount,
-      freeShipping,
-    });
+    // ============================================
+    // CALCULATE DISCOUNT
+    // ============================================
+    let discountAmount = 0;
 
+    if (coupon.type === 'percentage') {
+      // Percentage discount
+      discountAmount = (subtotal * coupon.value) / 100;
+
+      // Apply max discount if specified
+      if (coupon.max_discount && discountAmount > coupon.max_discount) {
+        discountAmount = coupon.max_discount;
+      }
+    } else if (coupon.type === 'fixed') {
+      // Fixed amount discount
+      discountAmount = Math.min(coupon.value, subtotal); // Can't exceed subtotal
+    }
+
+    // Round to 2 decimal places
+    discountAmount = Math.round(discountAmount * 100) / 100;
+
+    // ============================================
+    // RETURN SUCCESS
+    // ============================================
     return NextResponse.json({
       success: true,
       coupon: {
         code: coupon.code,
         type: coupon.type,
         value: coupon.value,
-        discount,
-        freeShipping,
+        discount: discountAmount,
+        freeShipping: coupon.free_shipping || false,
         description: coupon.description,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Error validating coupon:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to validate coupon' },
       { status: 500 }
     );
   }
+}
+
+// ============================================
+// GET: NOT ALLOWED
+// ============================================
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Method not allowed. Use POST to validate coupons.' },
+    { status: 405 }
+  );
 }
