@@ -50,7 +50,6 @@ export default function BottomNav() {
       icon: Heart,
       isActive: pathname === "/wishlist",
       badge: wishlistCount,
-      badgeColor: "bg-red-600",
     },
     {
       name: "Cart",
@@ -58,7 +57,6 @@ export default function BottomNav() {
       icon: ShoppingBag,
       isActive: false,
       badge: itemCount,
-      badgeColor: "bg-black",
       onClick: (e: React.MouseEvent) => {
         e.preventDefault();
         toggleCart();
@@ -77,55 +75,48 @@ export default function BottomNav() {
       className={cn(
         "fixed bottom-0 left-0 right-0 z-40",
         "lg:hidden", // Only show on mobile
-        "pb-safe" // Safe area for iPhone notch
+        "pb-safe" // Safe area for iPhone
       )}
     >
-      {/* Glassmorphism Container */}
+      {/* Premium Glassmorphism Container */}
       <div
         className={cn(
-          "mx-3 mb-3",
-          "bg-white/90 backdrop-blur-xl",
-          "border border-gray-200/60",
-          "rounded-[20px]",
-          "shadow-[0_8px_32px_rgba(0,0,0,0.12)]",
+          "mx-2 mb-2",
+          "bg-white/95 backdrop-blur-2xl",
+          "border border-black/5",
+          "rounded-[24px]",
+          "shadow-[0_8px_30px_rgba(0,0,0,0.12)]",
           "overflow-hidden"
         )}
       >
-        {/* Navigation Items */}
-        <div className="flex items-center justify-around h-[68px] px-1">
+        {/* Navigation Grid */}
+        <div className="grid grid-cols-5 h-[70px]">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.isActive;
 
             const content = (
-              <>
-                {/* Active Indicator - Subtle Top Line */}
-                {isActive && (
-                  <div className="absolute top-1 left-1/2 -translate-x-1/2 w-5 h-[2px] bg-black rounded-full" />
-                )}
-
-                {/* Icon Container */}
+              <div className="relative flex flex-col items-center justify-center h-full gap-1">
+                {/* Icon with Badge */}
                 <div className="relative">
                   <Icon
                     className={cn(
-                      "w-[22px] h-[22px] transition-all duration-300",
-                      isActive ? "stroke-[2.5]" : "stroke-[1.5]"
+                      "w-6 h-6 transition-all duration-200",
+                      isActive ? "stroke-[2.5] text-black" : "stroke-[1.8] text-gray-400"
                     )}
                   />
 
-                  {/* Badge - ONLY when count > 0 */}
-                  {isMounted && item.badge && item.badge > 0 && (
+                  {/* Badge - ONLY if count > 0 */}
+                  {isMounted && item.badge !== undefined && item.badge > 0 && (
                     <span
                       className={cn(
-                        "absolute -top-1.5 -right-1.5",
+                        "absolute -top-1 -right-2",
                         "flex items-center justify-center",
-                        "min-w-[17px] h-[17px] px-1",
-                        item.badgeColor,
-                        "text-white",
-                        "text-[9px] font-bold leading-none",
+                        "min-w-[18px] h-[18px] px-1.5",
+                        item.name === "Wishlist" ? "bg-red-600" : "bg-black",
+                        "text-white text-[10px] font-bold leading-none",
                         "rounded-full",
-                        "shadow-lg",
-                        "border-[1.5px] border-white"
+                        "shadow-lg border-2 border-white"
                       )}
                     >
                       {item.badge > 9 ? "9+" : item.badge}
@@ -133,17 +124,22 @@ export default function BottomNav() {
                   )}
                 </div>
 
-                {/* Label - Clean, NO numbers here! */}
+                {/* Label - Clean, uppercase, NO numbers */}
                 <span
                   className={cn(
-                    "text-[9.5px] font-medium tracking-[0.5px] uppercase",
-                    "transition-all duration-300",
-                    isActive ? "opacity-100 font-semibold" : "opacity-55"
+                    "text-[9px] uppercase tracking-[0.8px] font-semibold",
+                    "transition-all duration-200",
+                    isActive ? "text-black" : "text-gray-400"
                   )}
                 >
                   {item.name}
                 </span>
-              </>
+
+                {/* Active Indicator - Bottom line */}
+                {isActive && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-[3px] bg-black rounded-t-full" />
+                )}
+              </div>
             );
 
             return item.onClick ? (
@@ -152,15 +148,9 @@ export default function BottomNav() {
                 key={item.name}
                 onClick={item.onClick}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1.5",
-                  "w-16 h-16",
-                  "rounded-xl",
-                  "transition-all duration-300 ease-out",
-                  "touch-manipulation",
-                  "active:scale-90",
-                  isActive
-                    ? "text-black"
-                    : "text-gray-500 active:bg-gray-50/80"
+                  "relative touch-manipulation",
+                  "active:scale-95 active:bg-black/5",
+                  "transition-all duration-200 ease-out"
                 )}
               >
                 {content}
@@ -171,15 +161,9 @@ export default function BottomNav() {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1.5",
-                  "w-16 h-16",
-                  "rounded-xl",
-                  "transition-all duration-300 ease-out",
-                  "touch-manipulation",
-                  "active:scale-90",
-                  isActive
-                    ? "text-black"
-                    : "text-gray-500 active:bg-gray-50/80"
+                  "relative touch-manipulation",
+                  "active:scale-95 active:bg-black/5",
+                  "transition-all duration-200 ease-out"
                 )}
               >
                 {content}
