@@ -15,7 +15,8 @@ import SearchModal from "@/components/search/SearchModal";
 export default function Header() {
   const pathname = usePathname();
   const isHomepage = pathname === "/";
-  // ✅ SSR-SAFE: Optional chaining + default values to prevent destructuring errors
+
+  // ✅ SSR-SAFE: Optional chaining + default values
   const { data: session = null, status = "loading" } = useSession() || {};
 
   const [isScrolled, setIsScrolled] = useState(false);
@@ -23,7 +24,7 @@ export default function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [showMobileSearchIcon, setShowMobileSearchIcon] = useState(false);
-  const [showUserDropdown, setShowUserDropdown] = useState(false); // User dropdown
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const { getItemCount, toggleCart } = useCartStore();
   const { getItemCount: getWishlistCount } = useWishlistStore();
@@ -68,8 +69,10 @@ export default function Header() {
   if (pathname.startsWith("/admin")) {
     return null;
   }
+
   return (
     <>
+      {/* ========== DESKTOP HEADER ========== */}
       <header
         className={cn(
           "fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out",
@@ -235,7 +238,7 @@ export default function Header() {
         </div>
       </header>
 
-      {/* MOBILE HEADER */}
+      {/* ========== MOBILE HEADER ========== */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm h-16 lg:hidden">
         <div className="h-full flex items-center justify-between px-4">
           <div className="flex items-center gap-2">
@@ -303,7 +306,7 @@ export default function Header() {
         </div>
       </header>
 
-      {/* Mobile Menu Drawer */}
+      {/* ========== MOBILE MENU DRAWER ========== */}
       <div
         className={cn(
           "fixed top-0 right-0 bottom-0 w-full max-w-md bg-white z-[100] transform transition-transform duration-500 ease-out shadow-2xl overflow-y-auto",
@@ -476,6 +479,7 @@ export default function Header() {
         </div>
       </div>
 
+      {/* Menu Overlay */}
       {isMobileMenuOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-[90] transition-opacity duration-500"
@@ -483,7 +487,7 @@ export default function Header() {
         />
       )}
 
-      {/* Close dropdown when clicking outside */}
+      {/* Dropdown Overlay */}
       {showUserDropdown && (
         <div
           className="fixed inset-0 z-40"
