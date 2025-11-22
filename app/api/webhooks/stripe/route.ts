@@ -1,9 +1,8 @@
 // app/api/webhooks/stripe/route.ts
 // ═══════════════════════════════════════════════════════════════
-// 🎯 NOWIHT - STRIPE WEBHOOK HANDLER
-// ✅ FIXED: Order number metadata'dan alınıyor
-// 🚀 FIX v4: FULL METADATA PARSE - Kupon, pricing, cart items
-// 🔧 FIX v5: supabaseAdmin.raw() hatası düzeltildi
+// 🎯 NOWIHT - STRIPE WEBHOOK HANDLER (FIXED)
+// ✅ Proper metadata parsing and database mapping
+// ✅ All fields correctly populated
 // ═══════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -69,8 +68,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 💳 PAYMENT SUCCESS HANDLER
-// 🚀 Parse FULL metadata and save to database
+// 💳 PAYMENT SUCCESS HANDLER - FIXED VERSION
 // ═══════════════════════════════════════════════════════════════
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   try {
@@ -78,21 +76,22 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 
     const metadata = paymentIntent.metadata;
 
-    // ✅ Extract order number (generated in payment-intent route)
+    // ✅ Extract order number
     const orderNumber = metadata.orderNumber || `NOW-${Date.now().toString().slice(-8)}`;
     console.log('📦 Order Number:', orderNumber);
 
-    // 🛒 Parse cart items from JSON string
+    // ✅ Parse cart items from JSON string
     let cartItems: any[] = [];
     try {
-      cartItems = metadata.cart_items ? JSON.parse(metadata.cart_items) : [];
+      const cartItemsStr = metadata.cart_items || '[]';
+      cartItems = JSON.parse(cartItemsStr);
       console.log('🛒 Cart Items:', cartItems.length, 'items');
     } catch (error) {
       console.error('❌ Error parsing cart items:', error);
       cartItems = [];
     }
 
-    // 💰 Parse pricing details
+    // ✅ Parse ALL pricing details (in cents)
     const subtotal = parseInt(metadata.subtotal_cents || '0');
     const shippingCost = parseInt(metadata.shipping_cost_cents || '0');
     const originalShipping = parseInt(metadata.original_shipping_cents || '0');
@@ -100,16 +99,16 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     const discount = parseInt(metadata.discount_cents || '0');
     const total = parseInt(metadata.total_cents || paymentIntent.amount.toString());
 
-    console.log('💰 Pricing:', {
-      subtotal: `$${(subtotal / 100).toFixed(2)}`,
-      shipping: `$${(shippingCost / 100).toFixed(2)}`,
-      originalShipping: `$${(originalShipping / 100).toFixed(2)}`,
-      tax: `$${(tax / 100).toFixed(2)}`,
-      discount: `$${(discount / 100).toFixed(2)}`,
-      total: `$${(total / 100).toFixed(2)}`,
+    console.log('💰 Pricing (cents):', {
+      subtotal,
+      shippingCost,
+      originalShipping,
+      tax,
+      discount,
+      total,
     });
 
-    // 🎟️ Parse coupon details
+    // ✅ Parse coupon details
     const couponCode = metadata.coupon_code || null;
     const couponType = metadata.coupon_type || null;
     const couponValue = metadata.coupon_value ? parseFloat(metadata.coupon_value) : null;
@@ -121,40 +120,41 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
         code: couponCode,
         type: couponType,
         value: couponValue,
-        discount: `$${couponDiscount}`,
+        discount: couponDiscount,
         freeShipping: freeShippingApplied,
       });
     }
 
-    // 📦 Prepare order data for database
+    // ✅ Build shipping address object
+    const shippingAddress = {
+      address: metadata.shipping_address || '',
+      apartment: metadata.shipping_apartment || '',
+      city: metadata.shipping_city || '',
+      state: metadata.shipping_state || '',
+      zip: metadata.shipping_zip || '',
+      country: metadata.shipping_country || '',
+    };
+
+    console.log('🚚 Shipping Address:', shippingAddress);
+
+    // ✅ Prepare COMPLETE order data for database
     const orderData = {
-      // Order identification
+      // Identifiers
       order_number: orderNumber,
       payment_intent_id: paymentIntent.id,
 
       // Customer information
-      customer_email: metadata.customer_email,
-      customer_name: metadata.customer_name || metadata.customerName, // Support both formats
-      customer_phone: metadata.customer_phone,
+      customer_email: metadata.customer_email || '',
+      customer_name: metadata.customer_name || '',
+      customer_phone: metadata.customer_phone || null,
 
-      // Shipping address (JSON object)
-      shipping_address: {
-        address: metadata.shipping_address,
-        apartment: metadata.shipping_apartment || '',
-        city: metadata.shipping_city,
-        state: metadata.shipping_state,
-        zip: metadata.shipping_zip,
-        country: metadata.shipping_country,
-      },
-      shipping_method: metadata.shipping_method || 'standard',
-
-      // Pricing (in cents)
-      subtotal,
-      shipping_cost: shippingCost,
-      original_shipping_cost: originalShipping,
-      tax,
-      discount,
-      total,
+      // Pricing (ALL IN CENTS as INT8)
+      subtotal,                    // ✅ INT8 NOT NULL
+      shipping_cost: shippingCost, // ✅ INT8 NOT NULL
+      original_shipping_cost: originalShipping || null, // ✅ INT8 nullable
+      tax,                         // ✅ INT8 NOT NULL
+      discount,                    // ✅ INT8 NOT NULL
+      total,                       // ✅ INT8 NOT NULL
       currency: paymentIntent.currency || 'usd',
 
       // Coupon information
@@ -164,15 +164,20 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       coupon_discount: couponDiscount,
       free_shipping_applied: freeShippingApplied,
 
-      // Cart items (JSON array)
-      items: cartItems,
-      item_count: parseInt(metadata.item_count || '0'),
+      // Shipping
+      shipping_address: shippingAddress,        // ✅ JSONB NOT NULL
+      shipping_method: metadata.shipping_method || 'standard', // ✅ TEXT NOT NULL
+
+      // Cart items
+      items: cartItems,            // ✅ JSONB NOT NULL
+      item_count: parseInt(metadata.item_count || '0'), // ✅ INT4 NOT NULL
 
       // Status
-      status: 'pending', // Will be updated to 'processing' by admin
+      status: 'pending',
       payment_status: 'succeeded',
+      payment_method: paymentIntent.payment_method_types?.[0] || null,
 
-      // Full metadata for reference
+      // Metadata (for reference/debugging)
       metadata: metadata,
 
       // Timestamps
@@ -181,8 +186,16 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     };
 
     console.log('💾 Saving order to database...');
+    console.log('📊 Order data summary:', {
+      orderNumber: orderData.order_number,
+      email: orderData.customer_email,
+      subtotal: `$${(orderData.subtotal / 100).toFixed(2)}`,
+      total: `$${(orderData.total / 100).toFixed(2)}`,
+      items: orderData.item_count,
+      coupon: orderData.coupon_code || 'none',
+    });
 
-    // 📝 Insert order into Supabase
+    // ✅ Insert order into Supabase
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert(orderData)
@@ -201,13 +214,12 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       items: order.item_count,
     });
 
-    // 🎟️ Update coupon usage count if coupon was used
+    // ✅ Update coupon usage count
     if (couponCode) {
       console.log('🎟️ Updating coupon usage count for:', couponCode);
 
       try {
-        // 🔧 FIX: Manual increment instead of supabaseAdmin.raw()
-        // Step 1: Get current coupon data
+        // Get current coupon data
         const { data: coupon, error: fetchError } = await supabaseAdmin
           .from('coupons')
           .select('used_count')
@@ -217,7 +229,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
         if (fetchError) {
           console.error('⚠️ Error fetching coupon:', fetchError);
         } else if (coupon) {
-          // Step 2: Increment used_count
+          // Increment used_count
           const newUsedCount = (coupon.used_count || 0) + 1;
 
           const { error: updateError } = await supabaseAdmin
@@ -240,17 +252,17 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       }
     }
 
-    // 📧 Send confirmation email
+    // ✅ Send confirmation email
     try {
       console.log('📧 Sending confirmation email to:', metadata.customer_email);
 
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'noreply@updates.nowiht.com',
-        to: metadata.customer_email,
+        to: metadata.customer_email || '',
         subject: `Order Confirmation #${orderNumber} - NOWIHT`,
         html: generateOrderConfirmationEmail({
           orderNumber,
-          customerName: metadata.customer_name || metadata.customerName || 'Valued Customer',
+          customerName: metadata.customer_name || 'Valued Customer',
           total: total / 100,
           subtotal: subtotal / 100,
           shipping: shippingCost / 100,
@@ -259,7 +271,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
           couponCode,
           freeShippingApplied,
           items: cartItems,
-          shippingAddress: orderData.shipping_address,
+          shippingAddress,
         }),
       });
 
@@ -277,7 +289,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ❌ PAYMENT FAILED HANDLER
+// ❌ PAYMENT FAILED HANDLER (unchanged)
 // ═══════════════════════════════════════════════════════════════
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   try {
@@ -290,7 +302,6 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
     if (email) {
       console.log('📧 Sending payment failed email to:', email);
 
-      // Send payment failed email
       try {
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'noreply@updates.nowiht.com',
@@ -320,7 +331,7 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 📧 EMAIL TEMPLATE GENERATOR
+// 📧 EMAIL TEMPLATE GENERATOR (unchanged - same as before)
 // ═══════════════════════════════════════════════════════════════
 function generateOrderConfirmationEmail(data: {
   orderNumber: string;
