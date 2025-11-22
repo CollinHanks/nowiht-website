@@ -50,6 +50,7 @@ export default function BottomNav() {
       icon: Heart,
       isActive: pathname === "/wishlist",
       badge: wishlistCount,
+      badgeColor: "bg-red-600",
     },
     {
       name: "Cart",
@@ -57,6 +58,7 @@ export default function BottomNav() {
       icon: ShoppingBag,
       isActive: false,
       badge: itemCount,
+      badgeColor: "bg-black",
       onClick: (e: React.MouseEvent) => {
         e.preventDefault();
         toggleCart();
@@ -81,19 +83,68 @@ export default function BottomNav() {
       {/* Glassmorphism Container */}
       <div
         className={cn(
-          "mx-4 mb-4",
-          "bg-white/80 backdrop-blur-xl",
-          "border border-gray-200/50",
-          "rounded-2xl",
+          "mx-3 mb-3",
+          "bg-white/90 backdrop-blur-xl",
+          "border border-gray-200/60",
+          "rounded-[20px]",
           "shadow-[0_8px_32px_rgba(0,0,0,0.12)]",
           "overflow-hidden"
         )}
       >
         {/* Navigation Items */}
-        <div className="flex items-center justify-around h-[72px] px-2">
+        <div className="flex items-center justify-around h-[68px] px-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.isActive;
+
+            const content = (
+              <>
+                {/* Active Indicator - Subtle Top Line */}
+                {isActive && (
+                  <div className="absolute top-1 left-1/2 -translate-x-1/2 w-5 h-[2px] bg-black rounded-full" />
+                )}
+
+                {/* Icon Container */}
+                <div className="relative">
+                  <Icon
+                    className={cn(
+                      "w-[22px] h-[22px] transition-all duration-300",
+                      isActive ? "stroke-[2.5]" : "stroke-[1.5]"
+                    )}
+                  />
+
+                  {/* Badge - ONLY when count > 0 */}
+                  {isMounted && item.badge && item.badge > 0 && (
+                    <span
+                      className={cn(
+                        "absolute -top-1.5 -right-1.5",
+                        "flex items-center justify-center",
+                        "min-w-[17px] h-[17px] px-1",
+                        item.badgeColor,
+                        "text-white",
+                        "text-[9px] font-bold leading-none",
+                        "rounded-full",
+                        "shadow-lg",
+                        "border-[1.5px] border-white"
+                      )}
+                    >
+                      {item.badge > 9 ? "9+" : item.badge}
+                    </span>
+                  )}
+                </div>
+
+                {/* Label - Clean, NO numbers here! */}
+                <span
+                  className={cn(
+                    "text-[9.5px] font-medium tracking-[0.5px] uppercase",
+                    "transition-all duration-300",
+                    isActive ? "opacity-100 font-semibold" : "opacity-55"
+                  )}
+                >
+                  {item.name}
+                </span>
+              </>
+            );
 
             return item.onClick ? (
               // Cart Button
@@ -101,60 +152,18 @@ export default function BottomNav() {
                 key={item.name}
                 onClick={item.onClick}
                 className={cn(
-                  "relative flex flex-col items-center justify-center",
-                  "w-[64px] h-[64px]",
+                  "relative flex flex-col items-center justify-center gap-1.5",
+                  "w-16 h-16",
                   "rounded-xl",
                   "transition-all duration-300 ease-out",
                   "touch-manipulation",
                   "active:scale-90",
                   isActive
                     ? "text-black"
-                    : "text-gray-500 active:bg-gray-50"
+                    : "text-gray-500 active:bg-gray-50/80"
                 )}
               >
-                {/* Active Indicator - Top Line */}
-                {isActive && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-black rounded-full" />
-                )}
-
-                {/* Icon Container */}
-                <div className="relative mb-1">
-                  <Icon
-                    className={cn(
-                      "w-6 h-6 transition-all duration-300",
-                      isActive ? "stroke-[2]" : "stroke-[1.5]"
-                    )}
-                  />
-
-                  {/* Badge - Cart */}
-                  {isMounted && item.badge && item.badge > 0 && (
-                    <span
-                      className={cn(
-                        "absolute -top-1.5 -right-1.5",
-                        "flex items-center justify-center",
-                        "min-w-[18px] h-[18px] px-1",
-                        "bg-black text-white",
-                        "text-[10px] font-semibold",
-                        "rounded-full",
-                        "shadow-sm"
-                      )}
-                    >
-                      {item.badge > 99 ? "99+" : item.badge}
-                    </span>
-                  )}
-                </div>
-
-                {/* Label */}
-                <span
-                  className={cn(
-                    "text-[11px] font-medium tracking-wide",
-                    "transition-all duration-300",
-                    isActive ? "opacity-100 font-semibold" : "opacity-70"
-                  )}
-                  style={{ fontFamily: "IBM Plex Mono, monospace" }}
-                >
-                  {item.name}
-                </span>
+                {content}
               </button>
             ) : (
               // Regular Link
@@ -162,60 +171,18 @@ export default function BottomNav() {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "relative flex flex-col items-center justify-center",
-                  "w-[64px] h-[64px]",
+                  "relative flex flex-col items-center justify-center gap-1.5",
+                  "w-16 h-16",
                   "rounded-xl",
                   "transition-all duration-300 ease-out",
                   "touch-manipulation",
                   "active:scale-90",
                   isActive
                     ? "text-black"
-                    : "text-gray-500 active:bg-gray-50"
+                    : "text-gray-500 active:bg-gray-50/80"
                 )}
               >
-                {/* Active Indicator - Top Line */}
-                {isActive && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-black rounded-full" />
-                )}
-
-                {/* Icon Container */}
-                <div className="relative mb-1">
-                  <Icon
-                    className={cn(
-                      "w-6 h-6 transition-all duration-300",
-                      isActive ? "stroke-[2]" : "stroke-[1.5]"
-                    )}
-                  />
-
-                  {/* Badge - Wishlist */}
-                  {isMounted && item.badge && item.badge > 0 && (
-                    <span
-                      className={cn(
-                        "absolute -top-1.5 -right-1.5",
-                        "flex items-center justify-center",
-                        "min-w-[18px] h-[18px] px-1",
-                        "bg-red-600 text-white",
-                        "text-[10px] font-semibold",
-                        "rounded-full",
-                        "shadow-sm"
-                      )}
-                    >
-                      {item.badge > 99 ? "99+" : item.badge}
-                    </span>
-                  )}
-                </div>
-
-                {/* Label */}
-                <span
-                  className={cn(
-                    "text-[11px] font-medium tracking-wide",
-                    "transition-all duration-300",
-                    isActive ? "opacity-100 font-semibold" : "opacity-70"
-                  )}
-                  style={{ fontFamily: "IBM Plex Mono, monospace" }}
-                >
-                  {item.name}
-                </span>
+                {content}
               </Link>
             );
           })}
