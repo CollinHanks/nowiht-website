@@ -53,7 +53,7 @@ export default function BottomNav() {
     },
     {
       name: "Cart",
-      href: "#", // Cart opens via toggleCart
+      href: "#",
       icon: ShoppingBag,
       isActive: false,
       badge: itemCount,
@@ -75,88 +75,144 @@ export default function BottomNav() {
       className={cn(
         "fixed bottom-0 left-0 right-0 z-40",
         "lg:hidden", // Only show on mobile
-        "bg-white border-t border-gray-200",
-        "shadow-[0_-4px_12px_rgba(0,0,0,0.08)]"
+        "pb-safe" // Safe area for iPhone notch
       )}
     >
-      <div className="max-w-md mx-auto h-16 px-2">
-        <div className="flex items-center justify-around h-full">
+      {/* Glassmorphism Container */}
+      <div
+        className={cn(
+          "mx-4 mb-4",
+          "bg-white/80 backdrop-blur-xl",
+          "border border-gray-200/50",
+          "rounded-2xl",
+          "shadow-[0_8px_32px_rgba(0,0,0,0.12)]",
+          "overflow-hidden"
+        )}
+      >
+        {/* Navigation Items */}
+        <div className="flex items-center justify-around h-[72px] px-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.isActive;
 
             return item.onClick ? (
-              // Cart button
+              // Cart Button
               <button
                 key={item.name}
                 onClick={item.onClick}
                 className={cn(
                   "relative flex flex-col items-center justify-center",
-                  "w-14 h-14 rounded-lg",
+                  "w-[64px] h-[64px]",
+                  "rounded-xl",
                   "transition-all duration-300 ease-out",
                   "touch-manipulation",
-                  "active:scale-95",
+                  "active:scale-90",
                   isActive
                     ? "text-black"
-                    : "text-gray-500 hover:text-black hover:bg-gray-50"
+                    : "text-gray-500 active:bg-gray-50"
                 )}
               >
-                <div className="relative">
+                {/* Active Indicator - Top Line */}
+                {isActive && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-black rounded-full" />
+                )}
+
+                {/* Icon Container */}
+                <div className="relative mb-1">
                   <Icon
                     className={cn(
-                      "w-5 h-5 transition-all duration-300",
-                      isActive && "scale-110"
+                      "w-6 h-6 transition-all duration-300",
+                      isActive ? "stroke-[2]" : "stroke-[1.5]"
                     )}
                   />
+
+                  {/* Badge - Cart */}
                   {isMounted && item.badge && item.badge > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[9px] font-semibold text-white">
-                      {item.badge > 9 ? "9+" : item.badge}
+                    <span
+                      className={cn(
+                        "absolute -top-1.5 -right-1.5",
+                        "flex items-center justify-center",
+                        "min-w-[18px] h-[18px] px-1",
+                        "bg-black text-white",
+                        "text-[10px] font-semibold",
+                        "rounded-full",
+                        "shadow-sm"
+                      )}
+                    >
+                      {item.badge > 99 ? "99+" : item.badge}
                     </span>
                   )}
                 </div>
+
+                {/* Label */}
                 <span
                   className={cn(
-                    "text-[10px] font-medium mt-0.5 tracking-wide transition-all duration-300",
-                    isActive ? "opacity-100" : "opacity-70"
+                    "text-[11px] font-medium tracking-wide",
+                    "transition-all duration-300",
+                    isActive ? "opacity-100 font-semibold" : "opacity-70"
                   )}
+                  style={{ fontFamily: "IBM Plex Mono, monospace" }}
                 >
                   {item.name}
                 </span>
               </button>
             ) : (
-              // Regular link
+              // Regular Link
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
                   "relative flex flex-col items-center justify-center",
-                  "w-14 h-14 rounded-lg",
+                  "w-[64px] h-[64px]",
+                  "rounded-xl",
                   "transition-all duration-300 ease-out",
                   "touch-manipulation",
-                  "active:scale-95",
+                  "active:scale-90",
                   isActive
                     ? "text-black"
-                    : "text-gray-500 hover:text-black hover:bg-gray-50"
+                    : "text-gray-500 active:bg-gray-50"
                 )}
               >
-                <div className="relative">
+                {/* Active Indicator - Top Line */}
+                {isActive && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-black rounded-full" />
+                )}
+
+                {/* Icon Container */}
+                <div className="relative mb-1">
                   <Icon
                     className={cn(
-                      "w-5 h-5 transition-all duration-300",
-                      isActive && "scale-110"
+                      "w-6 h-6 transition-all duration-300",
+                      isActive ? "stroke-[2]" : "stroke-[1.5]"
                     )}
                   />
+
+                  {/* Badge - Wishlist */}
                   {isMounted && item.badge && item.badge > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-semibold text-white">
-                      {item.badge > 9 ? "9+" : item.badge}
+                    <span
+                      className={cn(
+                        "absolute -top-1.5 -right-1.5",
+                        "flex items-center justify-center",
+                        "min-w-[18px] h-[18px] px-1",
+                        "bg-red-600 text-white",
+                        "text-[10px] font-semibold",
+                        "rounded-full",
+                        "shadow-sm"
+                      )}
+                    >
+                      {item.badge > 99 ? "99+" : item.badge}
                     </span>
                   )}
                 </div>
+
+                {/* Label */}
                 <span
                   className={cn(
-                    "text-[10px] font-medium mt-0.5 tracking-wide transition-all duration-300",
-                    isActive ? "opacity-100" : "opacity-70"
+                    "text-[11px] font-medium tracking-wide",
+                    "transition-all duration-300",
+                    isActive ? "opacity-100 font-semibold" : "opacity-70"
                   )}
+                  style={{ fontFamily: "IBM Plex Mono, monospace" }}
                 >
                   {item.name}
                 </span>
