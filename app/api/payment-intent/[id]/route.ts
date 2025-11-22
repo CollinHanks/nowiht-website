@@ -2,17 +2,20 @@
 // ═══════════════════════════════════════════════════════════════
 // 🔍 NOWIHT - RETRIEVE PAYMENT INTENT API
 // Used by success page to fetch order details
+// 🔧 FIX: Next.js 15 - params is now a Promise
 // ═══════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
 
+// ✅ Next.js 15: params is now a Promise
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const paymentIntentId = params.id;
+    // 🔧 Await params to get the id
+    const { id: paymentIntentId } = await params;
 
     if (!paymentIntentId) {
       return NextResponse.json(
