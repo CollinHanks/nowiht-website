@@ -97,7 +97,7 @@ export default function BlogEditorPage() {
 
   const handleSave = async (status: "draft" | "published") => {
     setSaving(true);
-    
+
     const postData = {
       ...formData,
       status,
@@ -106,10 +106,10 @@ export default function BlogEditorPage() {
 
     // TODO: Save to Supabase
     console.log("Saving post:", postData);
-    
+
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setSaving(false);
-    
+
     // Redirect to admin dashboard
     router.push("/admin/blog");
   };
@@ -122,7 +122,7 @@ export default function BlogEditorPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Admin Page Header - NOT the main site Header component */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -170,7 +170,7 @@ export default function BlogEditorPage() {
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
@@ -234,7 +234,7 @@ export default function BlogEditorPage() {
               <label className="block text-sm font-medium mb-4">
                 Cover Image *
               </label>
-              
+
               {imagePreview ? (
                 <div className="relative aspect-video bg-gray-100 mb-4">
                   <img
@@ -362,7 +362,7 @@ export default function BlogEditorPage() {
                 <Globe className="w-4 h-4" />
                 SEO & GEO Settings
               </h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium mb-1">
