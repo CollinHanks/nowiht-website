@@ -322,7 +322,7 @@ export default function CheckoutPage() {
 
       console.log('📦 Creating payment intent with metadata:', metadata);
 
-      const response = await fetch('/api/create-payment-intent', {
+      const response = await fetch('/api/payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
